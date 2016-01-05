@@ -1,3 +1,5 @@
+
+
 type regex = 
   | Closure of regex
   | Char of char
@@ -16,24 +18,33 @@ type token =
   | RParen
   | Pipe
 
-let string_to_char_list str = 
-  let rec helper i col = 
+let token_to_string tok = 
+  match tok with
+  | Alphabet c -> Char.escaped c
+  | Star -> "*"
+  | LParen -> "("
+  | RParen -> ")"
+  | Pipe -> "|"
+  | End -> "END"
+
+let string_to_char_list (str:string) : char list = 
+  let rec helper (i:int) (col:char list) = 
     if i < 0 then col else helper (i - 1) (str.[i] :: col)
   in
-    helper (List.length str - 1) []
+    helper ((String.length str) - 1) []
 
 let tokenize str = 
   let char_list = string_to_char_list str in
-  List.foldr
+  List.fold_right
     (fun c acc ->
-      if 'a' <= c && c <= 'z' then Char c :: acc else 
+      if 'a' <= c && c <= 'z' then Alphabet c :: acc else 
       if c = '(' then LParen :: acc else
       if c = ')' then RParen :: acc else
       if c = '|' then Pipe :: acc else
       if c = '*' then Star :: acc else
       failwith "Unknow token")
-    [End]
     char_list
+    [End]
 
 
 let lookahead token_list = 
@@ -90,4 +101,13 @@ and parse_P4 l =
       (Char c, rest1)
   | _ -> raise (IllegalExpression "alphabet")
 
-  
+let parse str = 
+  let tok_list = tokenize str in
+  print_string "Input token list = " ;
+  List.iter (fun c -> print_string (" " ^ (token_to_string c))) tok_list;
+  print_endline "" ;
+
+  let (a, t) = parse_P1 tok_list in
+  if t <> [END] then raise (IllegalExpression "last token is not END");
+
+  a
