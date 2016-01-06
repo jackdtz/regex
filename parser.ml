@@ -63,51 +63,35 @@ let lookahead token_list =
 
 
 (**
- *  P1 = L1 | P2
- *  L1 = (|P2 L1) | E
- *  P2 = P3 L2 | P3
- *  L2 = P2 | E
- *  P3 = *L3
- *  L3 = * | E
- *  P4 = terminal | (P1))
- *  terminal = a .. z
+ *  S = T X
+ *  X = "|"S | E
+ *  T = F Y
+ *  Y = T F | E
+ *  F = U Z
+ *  Z = *F | E
+ *  U = (S) | a .. z
+ *
+ *  First_Set(S) = { "|" }
+ *  First_Set(T) = { "(", "a .. z"}
+ *  First_Set(F) = { "*", "(", "a .. z"}
  **)
 
-let rec parse_P1 l : regex * token list = 
-  let (a1, l1) = parse_P2 l in
+let rec parse_S (l : token list) : (regex * token list) = 
+  let (a1, l1) = parse_T l in
+  let (t, rest) = lookahead l1 in 
+  match t with
+  | Pipe ->                                   (* S = T | S*)
+      let (a2, l2) = parse_S rest in
+      (Alternation (a1, a2), l2)
+  | _ -> (a1, l1)                             (* S = T *)
+
+and parse_T (l : token list) : (regex * token list) = 
+  let (a1, l1) = parse_F l in
   let (t, rest) = lookahead l1 in
   match t with
-  | Pipe ->
-      let (a2, l2) = parse_P2 rest in
-        (Alternation (a1, a2), l2)
-  | _ -> (a1, l1)
+  |
 
-and parse_P2 l : regex * token list = 
-  let (a1, l1) = parse_P3 l in
-  let (t, rest) = lookahead l1 in
-  match t with
-  | Alphabet a2 -> (Concatenation (a1, Char a2), rest)
-  | _ -> (a1, l1)
 
-and parse_P3 l : regex * token list = 
-  let (a1, l1) = parse_P4 l in
-  let (t, rest) = lookahead l1 in
-  match t with
-  | Star -> (Closure a1, rest)
-  | _ -> (a1, l1)
-
-and parse_P4 l : regex * token list   = 
-  let (t1, rest1) = lookahead l in
-  match t1 with
-  | LParen -> 
-     (let (a, rest2) = parse_P1 rest1 in
-      let (t2, rest3) = lookahead rest2 in
-      match t2 with
-      | RParen -> (a, rest3)
-      | _ -> raise (IllegalExpression "parens"))
-  | Alphabet c -> 
-      (Char c, rest1)
-  | _ -> raise (IllegalExpression "alphabet")
 
 let parse str = 
   let tok_list = tokenize str in
