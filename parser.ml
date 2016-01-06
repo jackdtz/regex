@@ -27,6 +27,14 @@ let token_to_string tok =
   | Pipe -> "|"
   | End -> "END"
 
+let rec regex_to_string r : string = 
+  match r with
+  | Closure re -> (regex_to_string re) ^ "*"
+  | Char c -> Char.escaped c
+  | Concatenation (r1, r2) -> (regex_to_string r1) ^ (regex_to_string r2)
+  | Alternation (r1, r2) -> (regex_to_string r1) ^ "|" ^ (regex_to_string r2)
+  | Epsilon -> ""
+
 let string_to_char_list (str:string) : char list = 
   let rec helper (i:int) (col:char list) = 
     if i < 0 then col else helper (i - 1) (str.[i] :: col)
@@ -55,18 +63,18 @@ let lookahead token_list =
 
 
 (**
- *  P1 = P2 L1
+ *  P1 = L1 | P2
  *  L1 = (|P2 L1) | E
- *  P2 = P3 L2
- *  L2 = P3 L2 | E
- *  P3 = P4L3
- *  L3 = *L3 | E
+ *  P2 = P3 L2 | P3
+ *  L2 = P2 | E
+ *  P3 = *L3
+ *  L3 = * | E
  *  P4 = terminal | (P1))
  *  terminal = a .. z
  **)
 
-let rec parse_P1 l = 
-  let (a1, l1) = parse_P2 in
+let rec parse_P1 l : regex * token list = 
+  let (a1, l1) = parse_P2 l in
   let (t, rest) = lookahead l1 in
   match t with
   | Pipe ->
@@ -74,28 +82,28 @@ let rec parse_P1 l =
         (Alternation (a1, a2), l2)
   | _ -> (a1, l1)
 
-and parse_P2 l = 
-  let (a1, l1) = parse_P3 in
+and parse_P2 l : regex * token list = 
+  let (a1, l1) = parse_P3 l in
   let (t, rest) = lookahead l1 in
   match t with
-  | Alphabet a2 -> (Concatenation (a1, a2), rest)
+  | Alphabet a2 -> (Concatenation (a1, Char a2), rest)
   | _ -> (a1, l1)
 
-and parse_P3 l = 
+and parse_P3 l : regex * token list = 
   let (a1, l1) = parse_P4 l in
   let (t, rest) = lookahead l1 in
   match t with
-  | Star -> (Closure (Char a1), rest)
+  | Star -> (Closure a1, rest)
   | _ -> (a1, l1)
 
-and parse_P4 l = 
+and parse_P4 l : regex * token list   = 
   let (t1, rest1) = lookahead l in
   match t1 with
-  | LParens -> 
+  | LParen -> 
      (let (a, rest2) = parse_P1 rest1 in
       let (t2, rest3) = lookahead rest2 in
       match t2 with
-      | RParens -> (a, rest3)
+      | RParen -> (a, rest3)
       | _ -> raise (IllegalExpression "parens"))
   | Alphabet c -> 
       (Char c, rest1)
@@ -108,6 +116,11 @@ let parse str =
   print_endline "" ;
 
   let (a, t) = parse_P1 tok_list in
-  if t <> [END] then raise (IllegalExpression "last token is not END");
-
+  List.iter (fun c -> print_string (" " ^ (token_to_string c))) t;
+  print_endline "";
+  if t <> [End] then raise (IllegalExpression "last token is not END");
   a
+
+
+let _ = 
+  parse_P1 [Alphabet 'a'; LParen; Alphabet 'b'; Pipe; Alphabet 'c'; RParen; Star; End]
