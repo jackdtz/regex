@@ -1,14 +1,10 @@
-
+exception IllegalExpression of string
 
 type regex = 
   | Closure of regex
   | Char of char
   | Concatenation of regex * regex
   | Alternation of regex * regex
-  (*| Epsilon*)
-
-
-exception IllegalExpression of string
 
 type token = 
   | End
@@ -79,8 +75,6 @@ let lookahead token_list =
   | [] -> raise (IllegalExpression "lookahead")
   | hd :: tl -> (hd, tl)
 
-
-
 (**
  * exp     = concat "|" exp | concat
  * concat  = term concat | term
@@ -94,49 +88,40 @@ let lookahead token_list =
  * term = element factor3
  * factor3 = * | e
  * element = (exp) | a .. z
- *
- * S = T X
- * X = "|" S | E
- * T = F Y 
- * Y = T | E
- * F = U Z
- * Z = * | E
- * U = (S) | a .. z
- *
  **)
 
-let rec parse_S (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_T l in
+let rec parse_exp (l : token list) : (regex * token list) = 
+  let (a1, l1) = parse_concat l in
   let (t, rest) = lookahead l1 in 
   match t with
   | Pipe ->                                   (* S = T | S*)
-      let (a2, l2) = parse_S rest in
+      let (a2, l2) = parse_concat rest in
       (Alternation (a1, a2), l2)
   | _ -> (a1, l1)                             (* S = T *)
 
-and parse_T (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_F l in
+and parse_concat (l : token list) : (regex * token list) = 
+  let (a1, l1) = parse_term l in
   let (t, rest) = lookahead l1 in 
   match t with
   | Alphabet _ | LParen -> 
-      let (a2, l2) = parse_S l1 in
+      let (a2, l2) = parse_exp l1 in
       (Concatenation (a1, a2), l2)
   | _ -> (a1, l1)
 
 
-and parse_F (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_U l in 
+and parse_term (l : token list) : (regex * token list) = 
+  let (a1, l1) = parse_element l in 
   let (t, rest) = lookahead l1 in 
   match t with
   | Star -> (Closure a1, rest)
   | _ -> (a1, l1)
 
-and parse_U l = 
+and parse_element l = 
   let (t, rest) = lookahead l in
   match t with
   | Alphabet c -> (Char c, rest)
   | LParen -> 
-     (let (a, l1) = parse_S rest in
+     (let (a, l1) = parse_exp rest in
       let (t1, l2) = lookahead l1 in
       match t1 with
       | RParen -> (a, l2)
@@ -147,19 +132,13 @@ and parse_U l =
 
 let parse str : regex = 
   let tok_list = tokenize str in
-  print_string "Input token list = " ;
-  List.iter (fun c -> print_string (" " ^ (token_to_string c))) tok_list;
-  print_endline "" ;
-
-  let (a, t) = parse_S tok_list in
-  List.iter (fun c -> print_string (" " ^ (token_to_string c))) t;
-  print_endline "";
-  print_endline (regex_to_string a);
+  let (a, t) = parse_exp tok_list in 
+  assert(t = [End]);
   a
 
 
 let _ = 
   parse "a(b|c)*"
-  (*let (a, l) = parse_S [Alphabet 'a'; LParen; Alphabet 'b'; Pipe; Alphabet 'c'; RParen; Star; End] in *)
+  (*let (a, l) = parse_exp [Alphabet 'a'; LParen; Alphabet 'b'; Pipe; Alphabet 'c'; RParen; Star; End] in *)
   (*l = [End] *)
   
