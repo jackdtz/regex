@@ -133,8 +133,9 @@ let parse (str : string) : regex =
   then Empty
   else
     let (a, t) = parse_exp tok_list in 
-    assert(t = [End]);
-    a
+    match t with
+    | [End] -> a
+    | _ -> raise (IllegalExpression "Parsing is not completed")
 
 let test_parser () = 
   assert(parse "a(b|c)*" = 
