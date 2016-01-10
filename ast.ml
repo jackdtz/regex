@@ -5,7 +5,6 @@ type regex =
   | Char of char
   | Concatenation of regex * regex
   | Alternation of regex * regex
-  | Empty
 
 type token = 
   | End
@@ -49,7 +48,6 @@ let rec regex_to_string r : string =
       | (true, false) -> (addParens res1) ^ "|" ^ res2
       | (false, true) -> res1 ^ "|" ^ (addParens res2)
       | (false, false) -> res1 ^ "|" ^ res2)
-  | Empty -> ""
 
 let string_to_char_list (str:string) : char list = 
   let rec helper (i:int) (col:char list) = 
@@ -127,24 +125,24 @@ and parse_element l =
       | _ -> raise (IllegalExpression "Unbalanced parentheses"))
   | _ -> raise (IllegalExpression "Unknown token")
 
-let parse (str : string) : regex = 
+let parse (str : string) : regex option = 
   let tok_list = tokenize str in
   if tok_list = [End] 
-  then Empty
+  then None
   else
     let (a, t) = parse_exp tok_list in 
     match t with
-    | [End] -> a
+    | [End] -> Some a
     | _ -> raise (IllegalExpression "Parsing is not completed")
 
 let test_parser () = 
   assert(parse "a(b|c)*" = 
-        (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c'))))));
-  assert(parse "a" = Char 'a');
-  assert(parse "a|b" = Alternation (Char 'a', Char 'b'));
-  assert(parse "aab" = Concatenation (Char 'a', Concatenation (Char 'a', Char 'b')));
-  assert(parse "a*(a|b)" = Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b')));
-  assert(parse "" = Empty)
+        Some (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c'))))));
+  assert(parse "a" = Some (Char 'a'));
+  assert(parse "a|b" = Some (Alternation (Char 'a', Char 'b')));
+  assert(parse "aab" = Some (Concatenation (Char 'a', Concatenation (Char 'a', Char 'b'))));
+  assert(parse "a*(a|b)" = Some (Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b'))));
+  assert(parse "" = None)
 
 let run_test () =
   test_parser ()
