@@ -6,6 +6,8 @@ type regex =
 
 val regex_to_string : regex -> string
 
+val string_to_char_list : string -> char list
+
 val parse : string -> regex option
 
 val run_test : unit -> unit
