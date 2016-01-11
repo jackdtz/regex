@@ -78,7 +78,8 @@ and handle_altern (e1 : regex) (e2 : regex) =
     states = s1 :: s2 :: (states_union nfa1.states nfa2.states);
     alphabets = (alphabets_union nfa1.alphabets nfa2.alphabets);
     transactions = (s1, None, start1) :: (s1, None, start2) ::
-      ((states_to_state finals1 s2 None) @ (states_to_state finals2 s2 None));
+      ((states_to_state finals1 s2 None) @ (states_to_state finals2 s2 None) @
+        nfa1.transactions @ nfa2.transactions);
     start_state = s1;
     final_states = [s2];
   }
