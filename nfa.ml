@@ -35,29 +35,12 @@ let states_to_state states state edge : transaction list =
     states
     []
 
-(*let state_helper nfa1 nfa2 op =*)
-  (*let finals = nfa1.final_states in *)
-  (*let start = nfa2.start_state in *)
-  (*let start_char = List.hd nfa2.alphabets in*)
-  (*List.fold_right *)
-    (*(fun s acc -> *)
-      (*match op with*)
-      (*| Some _ -> (s, Some start_char, start) :: acc*)
-      (*| None -> (s, None, start) :: acc) *)
-    (*finals*)
-    (*[]*)
-
-(*let concat_nfas nfa1 nfa2 : transaction list =*)
-  (*state_helper nfa1 nfa2 (Some 1)*)
-
-
 let rec regex_to_nfa (re : regex) : nfa = 
   match re with
   | Char c -> handle_char c
   | Concatenation (e1, e2) -> handle_concat e1 e2
   | Alternation (e1, e2) -> handle_altern e1 e2 
   | Closure e -> handle_closure e
-
 
 and handle_char (c : char) : nfa = 
   let s1 = gen_state_num () in 
@@ -100,7 +83,6 @@ and handle_altern (e1 : regex) (e2 : regex) =
     final_states = [s2];
   }
 
-
 and handle_closure (e : regex) : nfa = 
   let s1 = gen_state_num () in 
   let s2 = gen_state_num () in
@@ -119,7 +101,6 @@ and handle_closure (e : regex) : nfa =
     start_state = s1 ;
     final_states = [s2] ;
   }
-
 
 let test1 = Concatenation (Char 'a', Char 'd')
 let test2 = Closure (Char 'a')
@@ -144,10 +125,12 @@ let test_nfa () =
   assert(regex_to_nfa test1 = expect_test1);
   assert(regex_to_nfa test2 = expect_test2)
 
-let _ = 
-  let res = regex_to_nfa test2 in
+let nfa_to_string res =
+  print_endline "";
+  print_string "states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.states ;
   print_endline "";
+  print_string "alphabets = ";
   List.iter (fun a -> print_string (Char.escaped a)) res.alphabets ;
   print_endline "";
   List.iter (fun (a, b, c) ->
@@ -157,11 +140,7 @@ let _ =
   res.transactions;
   print_endline "";
   print_endline (string_of_int res.start_state);
+  print_string "final_states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.final_states ;
-
-
-
-
-
 
 
