@@ -76,13 +76,13 @@ let match_re (re : string) (str : string) : bool =
   let has_pass = List.map 
     (fun x -> List.mem x fs) ans
   in 
-  (print_endline ""; Nfa.nfa_to_string n);
+  (*(print_endline ""; Nfa.nfa_to_string n);*)
   if List.mem true has_pass 
   then true 
   else false
 
-let _ = 
-  print_endline (string_of_bool (match_re "a*bc" "aaac"));
+(*let _ = *)
+  (*print_endline (string_of_bool (match_re "a*bc" "aaac"));*)
   (*let n = make_nfa "a*bc" in*)
   (*let new_ss = step n (reachables_from_start n n.start_state) 'a' in*)
   (*List.iter (fun x -> print_string ((string_of_int x) ^ " ")) new_ss *)

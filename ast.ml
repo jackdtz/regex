@@ -64,6 +64,7 @@ let tokenize str =
       if c = ')' then RParen :: acc else
       if c = '|' then Pipe :: acc else
       if c = '*' then Star :: acc else
+      if c = ' ' then acc else
       failwith "Unknow token")
     char_list
     [End]
@@ -92,10 +93,10 @@ let rec parse_exp (l : token list) : (regex * token list) =
   let (a1, l1) = parse_concat l in
   let (t, rest) = lookahead l1 in 
   match t with
-  | Pipe ->                                   (* S = T | S*)
+  | Pipe ->                                   
       let (a2, l2) = parse_concat rest in
       (Alternation (a1, a2), l2)
-  | _ -> (a1, l1)                             (* S = T *)
+  | _ -> (a1, l1)                           
 
 and parse_concat (l : token list) : (regex * token list) = 
   let (a1, l1) = parse_term l in
@@ -134,18 +135,6 @@ let parse (str : string) : regex option =
     match t with
     | [End] -> Some a
     | _ -> raise (IllegalExpression "Parsing is not completed")
-
-let test_parser () = 
-  assert(parse "a(b|c)*" = 
-        Some (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c'))))));
-  assert(parse "a" = Some (Char 'a'));
-  assert(parse "a|b" = Some (Alternation (Char 'a', Char 'b')));
-  assert(parse "aab" = Some (Concatenation (Char 'a', Concatenation (Char 'a', Char 'b'))));
-  assert(parse "a*(a|b)" = Some (Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b'))));
-  assert(parse "" = None)
-
-let run_test () =
-  test_parser ()
 
 
 
