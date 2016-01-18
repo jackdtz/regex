@@ -13,7 +13,7 @@ let test_parser () =
         Some (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c'))))));
   assert(Ast.parse "a" = Some (Char 'a'));
   assert(Ast.parse "a|b" = Some (Alternation (Char 'a', Char 'b')));
-  assert(Ast.parse "aab" = Some (Concatenation (Char 'a', Concatenation (Char 'a', Char 'b'))));
+  assert(Ast.parse "aab" = Some (Concatenation (Concatenation (Char 'a', Char 'a'), Char 'b')));
   assert(Ast.parse "a*(a|b)" = Some (Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b'))));
   assert(Ast.parse "" = None);
   assert(Ast.parse "a*(b|c)*d" = Some (Concatenation 

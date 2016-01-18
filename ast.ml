@@ -75,46 +75,46 @@ let lookahead token_list =
   | hd :: tl -> (hd, tl)
 
 (**
- * exp     = concat "|" exp | concat
- * concat  = term concat | term
- * term    = element* | element
- * element = (exp) | a .. z 
  *
- * exp = concat factor1
- * factor1 = "|" exp | e
- * concat = term factor2
- * factor2 = concat | e
- * term = element factor3
- * factor3 = * | e
+ * exp = term { "|" term}
+ * term = factor { factor }
+ * factor = element[*]
  * element = (exp) | a .. z
+ *
  **)
 
 let rec parse_exp (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_concat l in
-  let (t, rest) = lookahead l1 in 
-  match t with
-  | Pipe ->                                   
-      let (a2, l2) = parse_concat rest in
-      (Alternation (a1, a2), l2)
-  | _ -> (a1, l1)                           
-
-and parse_concat (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_term l in
-  let (t, rest) = lookahead l1 in 
-  match t with
-  | Alphabet _ | LParen -> 
-      let (a2, l2) = parse_concat l1 in
-      (Concatenation (a1, a2), l2)
-  | _ -> (a1, l1)
+  let rec helper l term =
+    let (t, rest) = lookahead l in
+    match t with
+    | Pipe -> 
+        let (next, l1) = parse_term rest in
+        helper l1 (Alternation (term, next))
+    | _ -> (term, l)
+  in
+  let (a, l2) = parse_term l in
+  helper l2 a
 
 and parse_term (l : token list) : (regex * token list) = 
-  let (a1, l1) = parse_element l in 
-  let (t, rest) = lookahead l1 in 
-  match t with
-  | Star -> (Closure a1, rest)
-  | _ -> (a1, l1)
+  let rec helper l factor = 
+    let (t, rest) = lookahead l in
+    match t with
+    | Alphabet _ | LParen ->
+        let (next, l1) = parse_factor l in
+        helper l1 (Concatenation (factor, next))
+    | _ -> (factor, l)
+  in
+  let (a, l2) = parse_factor l in
+  helper l2 a
 
-and parse_element l = 
+and parse_factor (l : token list) : (regex * token list) = 
+  let (a, l1) = parse_element l in
+  let (t, rest) = lookahead l1 in
+  match t with
+  | Star -> (Closure a, rest)
+  | _ -> (a, l1)
+
+and parse_element (l : token list) : (regex * token list) = 
   let (t, rest) = lookahead l in
   match t with
   | Alphabet c -> (Char c, rest)
@@ -135,8 +135,4 @@ let parse (str : string) : regex option =
     match t with
     | [End] -> Some a
     | _ -> raise (IllegalExpression "Parsing is not completed")
-
-
-
-
 
