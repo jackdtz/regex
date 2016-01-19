@@ -155,10 +155,10 @@ let rec helper (n : nfa) (work_list : state_set list) (q : state_set list)
       tobe_added_trans
     in
     match tobe_added with
-    | [] -> (q, st, d)
+    | [] -> helper n rest q st d 
     | _ ->
       let new_stateset = List.fold_left 
-        (fun acc set -> if List.mem set work_list then acc else set :: acc)
+        (fun acc set -> if List.mem set q then acc else set :: acc)
         []
         tobe_added 
       in
@@ -166,7 +166,7 @@ let rec helper (n : nfa) (work_list : state_set list) (q : state_set list)
       helper n (new_stateset @ rest) (new_stateset @ q) (tobe_added_trans @ st) (d_to_set @ d)
 
 let int_enumerate l h = 
-  let rec helper l h col = 
+ let rec helper l h col = 
     if l > h then col else helper l (h - 1) (h :: col)
   in helper l h [] 
 
@@ -230,7 +230,7 @@ let nfa_to_dfa (n : nfa) : dfa =
 
 
 let dfa_to_string (res : dfa) : unit =
-  print_endline "";
+  print_endline "DFA : ";
   print_string "states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.d_states ;
   print_endline "";
@@ -243,12 +243,12 @@ let dfa_to_string (res : dfa) : unit =
   print_endline "";
   print_endline (string_of_int res.d_start_state);
   print_string "final_states = ";
-  List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states 
+  List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
+  print_endline ""
 
-let () = 
-  let a = Ast.parse "a*(b|c)*d" in
-  let n = make_nfa "a*(b|c)*d" in
-  nfa_to_string n ;
-  let d = nfa_to_dfa n in
-  dfa_to_string d
+(*let () = *)
+  (*let n = make_nfa "a*b*d" in*)
+  (*nfa_to_string n ;*)
+  (*let d = nfa_to_dfa n in*)
+  (*dfa_to_string d*)
   

@@ -2,34 +2,37 @@ open Ast
 open Nfa
 open Re
 
-let test_string_to_char_list () = 
-  assert((Ast.string_to_char_list "a*(b|c)*") = ['a'; '*'; '('; 'b'; '|'; 'c'; ')'; '*']);
-  assert((Ast.string_to_char_list "a*(b | c)*" = ['a'; '*'; '('; 'b'; ' '; '|'; ' ';  'c'; ')'; '*']));
-  assert((Ast.string_to_char_list "") = [])
-
-
+let parser_equal (regex_str : string) (y : regex option) = 
+  let res = Ast.parse regex_str in
+  if res = y
+  then print_string ""
+  else print_string
+        ("Parser test FAILED, input regex:  " ^ regex_str ^ "\n" ^
+        "Expect: " ^ (Ast.string_of_parser_res y) ^ "\n" ^
+        "Actual: " ^ (Ast.string_of_parser_res res))
+  
 let test_parser () = 
-  assert(Ast.parse "a(b|c)*" = 
-        Some (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c'))))));
-  assert(Ast.parse "a" = Some (Char 'a'));
-  assert(Ast.parse "a|b" = Some (Alternation (Char 'a', Char 'b')));
-  assert(Ast.parse "aab" = Some (Concatenation (Concatenation (Char 'a', Char 'a'), Char 'b')));
-  assert(Ast.parse "a*(a|b)" = Some (Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b'))));
-  assert(Ast.parse "" = None);
-  assert(Ast.parse "a*(b|c)*d" = Some (Concatenation 
+  parser_equal "a(b|c)*"  
+                (Some (Concatenation (Char 'a', (Closure (Alternation (Char 'b', Char 'c')))))) ;
+  parser_equal "a"  (Some (Char 'a')) ;
+  parser_equal "a|b"  (Some (Alternation (Char 'a', Char 'b')));
+  parser_equal "aab"  (Some (Concatenation (Concatenation (Char 'a', Char 'a'), Char 'b')));
+  parser_equal "a*(a|b)"  (Some (Concatenation (Closure (Char 'a'),   Alternation (Char 'a', Char 'b'))));
+  parser_equal ""  None;
+  parser_equal "ad(b|c)*e" (Some (Concatenation 
+                                    (Concatenation 
+                                      ((Concatenation (Char 'a', Char 'd')), 
+                                        Closure (Alternation (Char 'b', Char 'c'))), 
+                                    Char 'e')));
+  parser_equal "a*(b|c)*d"  (Some (Concatenation 
                                         ((Concatenation 
                                           (Closure (Char 'a'), 
                                           (Closure (Alternation (Char 'b', Char 'c'))))),
                                         (Char 'd'))))
 
-let run_ast_tests () =
-  test_string_to_char_list () ;
-  test_parser ();
-  print_endline "ALL TEST CASES PASSED"
+
+let _ = test_parser ()
 
 
-let run_test () = 
-  run_ast_tests ()
 
-let _ = run_test ()
 

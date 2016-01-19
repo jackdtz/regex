@@ -127,7 +127,7 @@ let test_nfa () =
   assert(regex_to_nfa test2 = expect_test2)
 
 let nfa_to_string res =
-  print_endline "";
+  print_endline "NFA :";
   print_string "states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.states ;
   print_endline "";
@@ -143,5 +143,6 @@ let nfa_to_string res =
   print_endline (string_of_int res.start_state);
   print_string "final_states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.final_states ;
+  print_endline ""
 
 

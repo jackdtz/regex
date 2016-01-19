@@ -24,30 +24,24 @@ let token_to_string tok =
   | End -> "END"
 
 let rec regex_to_string r : string = 
-  let addParens str = 
-    "(" ^ str ^ ")"
-  in
   match r with
   | Closure re -> 
       let res = (regex_to_string re) in 
-      if String.length res > 1 then (addParens res) ^ "*" else res ^ "*"
-  | Char c -> Char.escaped c
+      "Closure " ^ "(" ^ res ^ ")"
+  | Char c -> "Char " ^ Char.escaped c
   | Concatenation (r1, r2) -> 
      (let res1 = regex_to_string r1 in
       let res2 = regex_to_string r2 in
-      match ((String.length res1) > 1, (String.length res2) > 1) with
-      | (true, true) -> (addParens res1) ^ (addParens res2)
-      | (true, false) -> (addParens res1) ^ res2
-      | (false, true) -> res1 ^ (addParens res2)
-      | (false, false) -> res1 ^ res2)
+      "Concatenation " ^ "(" ^ res1 ^ ", " ^ res2 ^ ")")
   | Alternation (r1, r2) -> 
      (let res1 = regex_to_string r1 in
       let res2 = regex_to_string r2 in
-      match ((String.length res1) > 1, (String.length res2) > 1) with
-      | (true, true) -> (addParens res1) ^ "|" ^ (addParens res2)
-      | (true, false) -> (addParens res1) ^ "|" ^ res2
-      | (false, true) -> res1 ^ "|" ^ (addParens res2)
-      | (false, false) -> res1 ^ "|" ^ res2)
+      "Alternation " ^ "(" ^ res1  ^ ", " ^ res2 ^ ")")
+
+let string_of_parser_res (r : regex option) = 
+  match r with
+  | Some res -> "Some " ^ "(" ^ regex_to_string res ^ ")"
+  | None -> "None"
 
 let string_to_char_list (str:string) : char list = 
   let rec helper (i:int) (col:char list) = 
