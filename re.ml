@@ -1,7 +1,16 @@
 open Nfa
 
-
 exception IllegalInput of string
+
+type d_transaction = state * alphabet * state
+
+type dfa = {
+  d_states : state list ;
+  d_alphabets : alphabet list;
+  d_transactions : d_transaction list;
+  d_start_state : state ;
+  d_final_states : state list ;
+}
 
 let make_nfa (str : string) : nfa = 
   let tree = Ast.parse str in
@@ -17,88 +26,13 @@ let rec list_union l1 l2 =
       then list_union tl l2
       else list_union tl (hd :: l2)
 
-let reachables_from_start (n : nfa) (start : int) : int list = 
-  let ts = n.transactions in
-  (List.map
-    (fun x -> match x with | (_, _, out) -> out)
-    (List.filter 
-      (fun x -> match x with 
-        | (i, None, _) -> if i = start then true else false
-        | _ -> false )
-      ts)) @ [start]
-
-let rec digin (ts : transaction list) (ss : int list) : int list = 
-  let can_move = List.filter
-    (fun t -> match t with 
-      | (in_state, Some _, out) -> false
-      | (in_state, None, out) -> 
-          if List.mem in_state ss then true else false)
-    ts
-  in 
-  let new_out = List.map 
-    (fun ts -> match ts with | (_, _, out) -> out) can_move in
-  let new_ss = (list_union new_out ss) in
-  if new_ss = ss
-  then new_ss
-  else digin ts new_ss
-
-let step (n : nfa) (ss : int list) (c : char) : int list = 
-  let ts = n.transactions in 
-  let edge_is_c = List.filter
-    (fun t -> match t with 
-      | (_, None, _)-> false
-      | (in_state, Some e, _) -> 
-          if c = e && (List.mem in_state ss) then true else false)
-    ts
-  in
-  let reachables = List.map
-    (fun t -> match t with
-    | (_, _, out) -> out) edge_is_c
-  in
-  digin n.transactions reachables
-
-
-
-let match_re (re : string) (str : string) : bool = 
-  let tokens = Ast.string_to_char_list str in
-  let {
-    states       = s;
-    alphabets    = a;
-    transactions = t;
-    start_state  = st;
-    final_states = fs;
-  } as n = make_nfa re in 
-  let rec helper input next_starts = 
-    match input with
-    | [] -> next_starts
-    | hd :: tl ->
-        let new_ss = step n next_starts hd in
-        helper tl new_ss
-  in
-  let ans = helper tokens (reachables_from_start n st) in
-  let has_pass = List.map 
-    (fun x -> List.mem x fs) ans
-  in 
-  (*(print_endline ""; Nfa.nfa_to_string n);*)
-  if List.mem true has_pass 
-  then true 
-  else false
-
-(*let _ = *)
-  (*print_endline (string_of_bool (match_re "a*bc" "aaac"));*)
-  (*let n = make_nfa "a*bc" in*)
-  (*let new_ss = step n (reachables_from_start n n.start_state) 'a' in*)
-  (*List.iter (fun x -> print_string ((string_of_int x) ^ " ")) new_ss *)
-
-type d_transaction = state * alphabet * state
-
-type dfa = {
-  d_states : state list ;
-  d_alphabets : alphabet list;
-  d_transactions : d_transaction list;
-  d_start_state : state ;
-  d_final_states : state list ;
-}
+let list_diff l1 l2 = 
+  List.fold_right
+    (fun x acc ->
+      if List.mem x l2
+      then acc
+      else x :: acc)
+    l1 []
 
 let move (n : nfa) (ss : state list) (c : char) : state list = 
   let ts = n.transactions in 
@@ -114,7 +48,6 @@ let move (n : nfa) (ss : state list) (c : char) : state list =
     | (_, _, out) -> out) edge_is_c
   in
   reachables
-
 
 let rec e_closure (n : nfa) (ss : state list) : state list = 
   let ts = n.transactions in
@@ -245,6 +178,17 @@ let dfa_to_string (res : dfa) : unit =
   print_string "final_states = ";
   List.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
   print_endline ""
+
+
+let minimize (d : dfa) : dfa = 
+  let partition = [list_diff d.states d.final_states; d.final_states] in
+  let work_list = partition in
+  hopcroft 
+
+
+
+(*let hopcroft*)
+
 
 (*let () = *)
   (*let n = make_nfa "a*b*d" in*)
