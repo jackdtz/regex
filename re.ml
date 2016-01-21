@@ -1,16 +1,18 @@
 open Nfa
+open Myset
 
 exception IllegalInput of string
 type state_set = State_set.t
+type states_set = States_set.t
 
 type d_transaction = state * alphabet * state
 
 type dfa = {
-  d_states : Nfa.State_set.t ;
+  d_states : state_set ;
   d_alphabets : alphabet list;
   d_transactions : d_transaction list;
   d_start_state : state ;
-  d_final_states : Nfa.State_set.t ;
+  d_final_states : state_set ;
 }
 
 
@@ -79,7 +81,7 @@ let rec e_closure (n : nfa) (ss : state_set) : state_set  =
 type set_to_set_trans = (state list * alphabet * state list)
 type state_set = state list
 
-let rec helper (n : nfa) (work_list : state_set list) (q : state_set list) 
+let rec helper (n : nfa) (work_list : states_set) (q : states_set) 
                (st : set_to_set_trans list) (d : (state_set * state) list) =
   match work_list with
   | [] -> (q, st, d)
@@ -158,7 +160,7 @@ let get_states dict =
 
 
 let nfa_to_dfa (n : nfa) : dfa = 
-  let start = e_closure n [n.start_state] in 
+  let start = e_closure n (State_set.singleton n.start_state) in 
   let (d_states, state_trans, dict) = helper n [start] [start] [] [(start, Nfa.gen_state_num ())] in
   let new_states = get_states dict in
   let new_trans = transform_trans state_trans dict in

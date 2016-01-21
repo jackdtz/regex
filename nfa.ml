@@ -1,14 +1,10 @@
 open Ast
+open Myset
 
 type state       = int
 type alphabet    = char
 type transaction = state * alphabet option * state
 
-module State_set = Set.Make(
-  struct
-    type t = state
-    let compare = Pervasives.compare
-  end)
 
 type nfa = {
   states       : State_set.t ;
