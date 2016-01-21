@@ -1,16 +1,26 @@
 open Nfa
 
 exception IllegalInput of string
+type state_set = State_set.t
 
 type d_transaction = state * alphabet * state
 
 type dfa = {
-  d_states : state list ;
+  d_states : Nfa.State_set.t ;
   d_alphabets : alphabet list;
   d_transactions : d_transaction list;
   d_start_state : state ;
-  d_final_states : state list ;
+  d_final_states : Nfa.State_set.t ;
 }
+
+
+module States_dict = Map.Make(
+  struct 
+    type t = State_set.t
+    let compare = State_set.compare
+  end
+)
+
 
 let make_nfa (str : string) : nfa = 
   let tree = Ast.parse str in
@@ -49,18 +59,19 @@ let move (n : nfa) (ss : state list) (c : char) : state list =
   in
   reachables
 
-let rec e_closure (n : nfa) (ss : state list) : state list = 
+let rec e_closure (n : nfa) (ss : state_set) : state_set  = 
   let ts = n.transactions in
   let can_move = List.filter
     (fun t -> match t with 
       | (in_state, Some _, out) -> false
       | (in_state, None, out) -> 
-          if List.mem in_state ss then true else false)
+          if State_set.mem in_state ss then true else false)
     ts
   in 
-  let new_out = List.map 
-    (fun ts -> match ts with | (_, _, out) -> out) can_move in
-  let new_ss = (list_union new_out ss) in
+  let new_out = State_set.of_list 
+  (List.map
+    (fun ts -> match ts with | (_, _, out) -> out) can_move) in
+  let new_ss = (State_set.union new_out ss) in
   if new_ss = ss
   then new_ss
   else e_closure n new_ss
@@ -181,13 +192,13 @@ let dfa_to_string (res : dfa) : unit =
 
 
 let minimize (d : dfa) : dfa = 
-  let partition = [list_diff d.states d.final_states; d.final_states] in
+  let partition = [(list_diff d.states d.final_states); d.final_states] in
   let work_list = partition in
-  hopcroft 
+  hopcroft work_list partition [] [] []
 
 
 
-(*let hopcroft*)
+let hopcroft 
 
 
 (*let () = *)
