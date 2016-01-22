@@ -5,11 +5,13 @@ type state       = int
 type alphabet    = char
 type transaction = state * alphabet option * state
 
+type state_set = State_set.t
+type states_set = States_set.t
 
 type nfa = {
   states       : State_set.t ;
-  alphabets    : alphabet list ;
-  transactions : transaction list; 
+  alphabets    : Alphabet_set.t ;
+  transactions : Transaction_set.t; 
   start_state  : state;
   final_states : State_set.t;
 }
@@ -20,22 +22,24 @@ let gen_state_num () : state =
   state_num := !state_num + 1;
   !state_num
 
-let rec union_helper l1 l2 = 
-  List.fold_right
-    (fun x acc -> if List.mem x l2 then acc else x :: acc)
-    l1
-    l2
-let states_union s1 s2 = 
-  State_set.union s1 s2
+let states_union = State_set.union 
+let alphabets_union = Alphabet_set.union 
+let trans_union = Transaction_set.union
 
-let alphabets_union a1 a2 = 
-  union_helper a1 a2   
+let make_nfa states alps trans start finals = 
+  {
+    states = states ;
+    alphabets = alps ;
+    transactions = trans ;
+    start_state = start ;
+    final_states = finals ;
+  }
 
-let states_to_state states state edge : transaction list = 
+let states_to_state states state edge  = 
   State_set.fold
-    (fun x acc -> (x, edge, state) :: acc)
+    (fun x acc -> Transaction_set.add (x, edge, state) acc)
     states
-    []
+    Transaction_set.empty
 
 let rec regex_to_nfa (re : regex) : nfa = 
   match re with
@@ -49,39 +53,44 @@ and handle_char (c : char) : nfa =
   let s2 = gen_state_num () in
   {
     states = State_set.(empty |> add s1);
-    alphabets = [c];
-    transactions = [(s1, Some c, s2)];
+    alphabets = Alphabet_set.singleton c ;
+    transactions = Transaction_set.singleton (s1, Some c, s2);
     start_state = s1;
     final_states = State_set.(empty |> add s2);
   }
 
 and handle_concat (e1 : regex) (e2 : regex) : nfa = 
-  let nfa1 = regex_to_nfa e1 in
-  let nfa2 = regex_to_nfa e2 in
+  let nfa1, nfa2 = regex_to_nfa e1, regex_to_nfa e2 in
+  let states1, states2 = nfa1.states, nfa2.states in
+  let alps1, alps2 = nfa1.alphabets, nfa2.alphabets in
+  let trans1, trans2 = nfa1.transactions, nfa2.transactions in
+  let final1, final2 = nfa1.final_states, nfa2.final_states in
   {
-    states = states_union nfa1.states nfa2.states ;
-    alphabets = alphabets_union nfa1.alphabets nfa2.alphabets ;
-    transactions = (states_to_state nfa1.final_states nfa2.start_state None) @
-                      (nfa1.transactions @ nfa2.transactions) ;
+    states = states_union states1 states2 ;
+    alphabets = alphabets_union alps1 alps2;
+    transactions = trans_union (trans_union trans1 trans2) 
+                               (states_to_state final1 nfa2.start_state None) ;
     start_state = nfa1.start_state ;
     final_states = nfa2.final_states ;
   }
 
 and handle_altern (e1 : regex) (e2 : regex) = 
-  let nfa1 = regex_to_nfa e1 in
-  let nfa2 = regex_to_nfa e2 in
-  let start1 = nfa1.start_state in
-  let start2 = nfa2.start_state in
-  let finals1 = nfa1.final_states in
-  let finals2 = nfa2.final_states in
+  let nfa1, nfa2 = regex_to_nfa e1, regex_to_nfa e2 in
+  let states1, states2 = nfa1.states, nfa2.states in
+  let alps1, alps2 = nfa1.alphabets, nfa2.alphabets in
+  let trans1, trans2 = nfa1.transactions, nfa2.transactions in
+  let start1, start2 = nfa1.start_state, nfa2.start_state in
+  let final1, final2 = nfa1.final_states, nfa2.final_states in
   let s1 = gen_state_num () in
   let s2 = gen_state_num () in
   {
-    states = State_set.(states_union nfa1.states nfa2.states |> add s1 |> add s2 );
-    alphabets = (alphabets_union nfa1.alphabets nfa2.alphabets);
-    transactions = (s1, None, start1) :: (s1, None, start2) ::
-      ((states_to_state finals1 s2 None) @ (states_to_state finals2 s2 None) @
-        nfa1.transactions @ nfa2.transactions);
+    states = State_set.(states_union states1 states2 |> add s1 |> add s2) ;
+    alphabets = alphabets_union alps1 alps2 ;
+    transactions = Transaction_set.
+        (union trans1 trans2 |> union (states_to_state final1 s2 None) 
+                             |> union (states_to_state final2 s2 None)
+                             |> add (s1, None, start1)
+                             |> add (s1, None, start2));
     start_state = s1;
     final_states = State_set.(empty |> add s2);
   }
@@ -89,22 +98,24 @@ and handle_altern (e1 : regex) (e2 : regex) =
 and handle_closure (e : regex) : nfa = 
   let s1 = gen_state_num () in 
   let s2 = gen_state_num () in
-  let nfa1 = regex_to_nfa e in
+  let n = regex_to_nfa e in
   let finals_to_start = 
-    states_to_state nfa1.final_states nfa1.start_state None
+    states_to_state n.final_states n.start_state None
   in
   let finals_to_s2 = 
-    states_to_state nfa1.final_states s2 None
+    states_to_state n.final_states s2 None
   in
   {
-    states = State_set.(nfa1.states |> add s1 |> add s2) ;
-    alphabets = nfa1.alphabets ;
-    transactions = (s1, None, nfa1.start_state) :: (s1, None, s2) ::
-      (finals_to_start @ finals_to_s2 @ nfa1.transactions) ;
+    states = State_set.(n.states |> add s1 |> add s2) ;
+    alphabets = n.alphabets ;
+    transactions = Transaction_set.
+      (union n.transactions finals_to_s2 
+        |> union finals_to_start
+        |> add (s1, None, s2)
+        |> add (s1, None, n.start_state)) ;
     start_state = s1 ;
     final_states = State_set.(empty |> add s2);
   }
-
 
 let nfa_to_string res =
   print_endline "NFA :";
@@ -112,9 +123,9 @@ let nfa_to_string res =
   State_set.iter (fun a -> print_string ((string_of_int a) ^ " ")) res.states ;
   print_endline "";
   print_string "alphabets = ";
-  List.iter (fun a -> print_string (Char.escaped a)) res.alphabets ;
+  Alphabet_set.iter (fun a -> print_string (Char.escaped a)) res.alphabets ;
   print_endline "";
-  List.iter (fun (a, b, c) ->
+  Transaction_set.iter (fun (a, b, c) ->
     match b with
     | Some k -> print_string ((string_of_int a) ^ " -> " ^ (Char.escaped k) ^ " -> " ^ (string_of_int c) ^ " " )
     | None -> print_string ((string_of_int a) ^ " ->" ^ "e"  ^ "-> " ^ (string_of_int c) ^ ", "))

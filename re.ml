@@ -2,26 +2,6 @@ open Nfa
 open Myset
 
 exception IllegalInput of string
-type state_set = State_set.t
-type states_set = States_set.t
-
-type d_transaction = state * alphabet * state
-
-type dfa = {
-  d_states : state_set ;
-  d_alphabets : alphabet list;
-  d_transactions : d_transaction list;
-  d_start_state : state ;
-  d_final_states : state_set ;
-}
-
-
-module States_dict = Map.Make(
-  struct 
-    type t = State_set.t
-    let compare = State_set.compare
-  end
-)
 
 
 let make_nfa (str : string) : nfa = 
@@ -46,70 +26,64 @@ let list_diff l1 l2 =
       else x :: acc)
     l1 []
 
-let move (n : nfa) (ss : state list) (c : char) : state list = 
+let move (n : nfa) (cur_reachable : state_set) (c : char) : state_set = 
   let ts = n.transactions in 
-  let edge_is_c = List.filter
+  let edge_is_c = Transaction_set.(filter
     (fun t -> match t with 
       | (_, None, _)-> false
       | (in_state, Some e, _) -> 
-          if c = e && (List.mem in_state ss) then true else false)
-    ts
+          if c = e && (State_set.mem in_state cur_reachable) then true else false)
+    ts)
   in
   let reachables = List.map
     (fun t -> match t with
-    | (_, _, out) -> out) edge_is_c
+    | (_, _, out) -> out) (Transaction_set.elements edge_is_c)
   in
-  reachables
+  State_set.of_list reachables
 
-let rec e_closure (n : nfa) (ss : state_set) : state_set  = 
+let rec e_closure (n : nfa) (cur_reachable : state_set) : state_set  = 
   let ts = n.transactions in
-  let can_move = List.filter
+  let e_moveable = Transaction_set.filter
     (fun t -> match t with 
       | (in_state, Some _, out) -> false
       | (in_state, None, out) -> 
-          if State_set.mem in_state ss then true else false)
+          if State_set.mem in_state cur_reachable then true else false)
     ts
   in 
-  let new_out = State_set.of_list 
+  let e_moveable_list = Transaction_set.elements e_moveable in
+  let e_reachable_states = State_set.of_list 
   (List.map
-    (fun ts -> match ts with | (_, _, out) -> out) can_move) in
-  let new_ss = (State_set.union new_out ss) in
-  if new_ss = ss
-  then new_ss
-  else e_closure n new_ss
+    (fun ts -> match ts with | (_, _, out) -> out) e_moveable_list) in
+  let new_reachable = (State_set.union e_reachable_states cur_reachable ) in
+  if new_reachable= cur_reachable
+  then new_reachable
+  else e_closure n new_reachable
 
 type set_to_set_trans = (state list * alphabet * state list)
 type state_set = state list
 
-let rec helper (n : nfa) (work_list : states_set) (q : states_set) 
-               (st : set_to_set_trans list) (d : (state_set * state) list) =
-  match work_list with
-  | [] -> (q, st, d)
-  | states :: rest ->
-    let all_trans = 
-      List.map (fun c -> (states, c, e_closure n (move n states c))) n.alphabets
-    in
-    let tobe_added_trans = List.filter
-      (fun trans -> match trans with
-      | (_, _, []) -> false
-      | (_, _, _) -> true)
-      all_trans
-    in
-    let tobe_added = List.map
-      (fun trans -> match trans with
-      | (_, _, set) -> set)
-      tobe_added_trans
-    in
-    match tobe_added with
-    | [] -> helper n rest q st d 
-    | _ ->
-      let new_stateset = List.fold_left 
-        (fun acc set -> if List.mem set q then acc else set :: acc)
-        []
-        tobe_added 
+let rec subset_construct (n : nfa) (work_list : states_set) (q : states_set) 
+               (d_trans : Trans_in_states_set.t) (dict : state Dict.t) =
+  match States_set.is_empty work_list with
+  | true -> (q, d_trans, dict)
+  | false ->
+      let module T = Trans_in_states_set in
+      let module S = State_set in
+      let selected = States_set.choose work_list in
+      let trans_on_all_chars = T.of_list
+        (List.map (fun c -> (selected, c, move n (e_closure n selected) c)) 
+                  (Alphabet_set.elements n.alphabets))
       in
-      let d_to_set = List.map (fun x -> (x, Nfa.gen_state_num ())) new_stateset in
-      helper n (new_stateset @ rest) (new_stateset @ q) (tobe_added_trans @ st) (d_to_set @ d)
+      let new_states_groups = 
+        T.filter (fun trans -> match trans with
+                  | (_, _, out) -> S.is_empty out)
+                 trans_on_all_chars
+      in
+      match T.is_empty new_states_groups with
+      | true -> subset_construct n 
+
+        
+
 
 let int_enumerate l h = 
  let rec helper l h col = 
@@ -161,7 +135,11 @@ let get_states dict =
 
 let nfa_to_dfa (n : nfa) : dfa = 
   let start = e_closure n (State_set.singleton n.start_state) in 
-  let (d_states, state_trans, dict) = helper n [start] [start] [] [(start, Nfa.gen_state_num ())] in
+  let work_list = States_set.singleton start
+  let q = work_list in
+  let dict = Dict.singleton start Nfa.gen_state_num () in
+  let d_trans_set = Transaction_set.empty in
+  let (d_states, state_trans, dict) = subset_construct n work_list q d_trans_set dict in
   let new_states = get_states dict in
   let new_trans = transform_trans state_trans dict in
   let new_finals = get_finals dict n.final_states in

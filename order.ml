@@ -1,5 +1,10 @@
-type order = Less | Equal | Greater
+(* The type order is used for comparison operations *)
+type order = Less | Eq | Greater
 
-let int_compare x y = if x = y then Equal else if x < y then Less else Greater
+let string_compare x y =
+  let i = String.compare x y in
+    if i = 0 then Eq else if i < 0 then Less else Greater
 
-let char_compare = int_compare
+let int_compare x y =
+  let i = x - y in
+    if i = 0 then Eq else if i < 0 then Less else Greater
