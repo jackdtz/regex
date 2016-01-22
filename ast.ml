@@ -1,4 +1,6 @@
+open Core.Std
 exception IllegalExpression of string
+
 
 type regex = 
   | Closure of regex
@@ -52,7 +54,7 @@ let string_to_char_list (str:string) : char list =
 let tokenize str = 
   let char_list = string_to_char_list str in
   List.fold_right
-    (fun c acc ->
+  ~f:(fun c acc ->
       if 'a' <= c && c <= 'z' then Alphabet c :: acc else 
       if c = '(' then LParen :: acc else
       if c = ')' then RParen :: acc else
@@ -60,8 +62,8 @@ let tokenize str =
       if c = '*' then Star :: acc else
       if c = ' ' then acc else
       failwith "Unknow token")
+    ~init:[End]
     char_list
-    [End]
 
 let lookahead token_list = 
   match token_list with

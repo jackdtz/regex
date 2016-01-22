@@ -1,20 +1,6 @@
+open Core.Std
 open Ast
-open Myset
-
-type state       = int
-type alphabet    = char
-type transaction = state * alphabet option * state
-
-type state_set = State_set.t
-type states_set = States_set.t
-
-type nfa = {
-  states       : State_set.t ;
-  alphabets    : Alphabet_set.t ;
-  transactions : Transaction_set.t; 
-  start_state  : state;
-  final_states : State_set.t;
-}
+open Datatypes
 
 let state_num = ref (- 1) 
 
