@@ -59,9 +59,6 @@ let rec e_closure (n : nfa) (cur_reachable : state_set) : state_set  =
   | 0 -> new_reachable
   | _ -> e_closure n new_reachable
 
-type set_to_set_trans = (state list * alphabet * state list)
-type state_set = state list
-
 let rec subset_construct (n : nfa) (work_list : states_set) (q : states_set) 
                (d_trans : Trans_in_states_set.t) (dict : state Dict.t) =
   match States_set.choose work_list with
