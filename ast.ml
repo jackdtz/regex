@@ -93,7 +93,7 @@ let rec parse_exp (l : token list) : (regex * token list) =
 
 and parse_term (l : token list) : (regex * token list) = 
   let rec helper l factor = 
-    let (t, rest) = lookahead l in
+    let (t, _) = lookahead l in
     match t with
     | Alphabet _ | LParen ->
         let (next, l1) = parse_factor l in
