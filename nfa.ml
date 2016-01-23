@@ -38,7 +38,7 @@ and handle_char (c : char) : nfa =
   let s1 = gen_state_num () in 
   let s2 = gen_state_num () in
   {
-    states = List.fold ~init:State_set.empty ~f:State_set.add [s1; s2] ;
+    states = State_set.(singleton s1 |> Fn.flip add s2) ;
     alphabets = Alphabet_set.singleton c ;
     transactions = Transaction_set.singleton (s1, Some c, s2);
     start_state = s1;
@@ -70,7 +70,7 @@ and handle_altern (e1 : regex) (e2 : regex) =
   let s2 = gen_state_num () in
   let flip = Fn.flip in
   {
-    states = State_set.empty;
+    states = states_union nfa1.states nfa2.states ;
     alphabets = alphabets_union alps1 alps2 ;
     transactions = Transaction_set.
         (union trans1 trans2 |> flip union (states_to_state final1 s2 None) 
@@ -104,23 +104,39 @@ and handle_closure (e : regex) : nfa =
     final_states = State_set.(singleton s2);
   }
 
-let nfa_to_string res =
-  print_endline "NFA :";
-  print_string "states = ";
-  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.states ;
-  print_endline "";
+let string_of_state_set states = 
+  print_string "{ " ;
+  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) states ;
+  print_string " }" ;
+  print_endline ""
+
+let string_of_alphabet_set alphabets = 
   print_string "alphabets = ";
-  Alphabet_set.iter ~f:(fun a -> print_string (Char.escaped a)) res.alphabets ;
-  print_endline "";
+  Alphabet_set.iter ~f:(fun a -> print_string (Char.escaped a)) alphabets ;
+  print_endline ""
+
+let string_of_transactions transactions = 
   Transaction_set.iter ~f:(fun (a, b, c) ->
     match b with
     | Some k -> print_string ((string_of_int a) ^ " -> " ^ (Char.escaped k) ^ " -> " ^ (string_of_int c) ^ " " )
     | None -> print_string ((string_of_int a) ^ " ->" ^ "e"  ^ "-> " ^ (string_of_int c) ^ ", "))
-  res.transactions;
-  print_endline "";
-  print_endline (string_of_int res.start_state);
-  print_string "final_states = ";
-  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.final_states ;
+  transactions;
   print_endline ""
+
+let string_of_start start_state= 
+  print_endline (string_of_int start_state)
+
+let string_of_finals final_states = 
+  print_string "final_states = ";
+  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) final_states ;
+  print_endline ""
+
+let nfa_to_string res =
+  print_endline "NFA :";
+  string_of_state_set res.states;
+  string_of_alphabet_set res.alphabets;
+  string_of_transactions res.transactions;
+  string_of_start res.start_state;
+  string_of_finals res.final_states
 
 

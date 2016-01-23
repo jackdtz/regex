@@ -6,6 +6,8 @@ exception IllegalInput of string
 exception IllegalTransformation of string
 exception MultipleStartStates of string
 
+let string_of_state_set = Nfa.string_of_state_set
+
 let make_nfa (str : string) : nfa = 
   let tree = Ast.parse str in
     match tree with
@@ -13,8 +15,19 @@ let make_nfa (str : string) : nfa =
     | None -> raise (IllegalInput "input string cannot be parsed")
 
 
+let print_trans (trans : Trans_in_states_set.t) = 
+  print_endline "trans: ";
+  Trans_in_states_set.iter
+    ~f:(fun (s_in, c, s_out) ->
+      Nfa.string_of_state_set s_in;
+      print_string " -> ";
+      print_string (Char.escaped c);
+      print_string " -> ";
+      Nfa.string_of_state_set s_out)
+  trans
+
 let move (n : nfa) (cur_reachable : state_set) (c : char) : state_set = 
-  let ts = n.transactions in 
+  let ts = n.transactions in
   let edge_is_c = Transaction_set.(filter
     ~f:(fun t -> match t with 
       | (_, None, _)-> false
@@ -54,22 +67,25 @@ let rec subset_construct (n : nfa) (work_list : states_set) (q : states_set)
   match States_set.choose work_list with
   | None -> (q, d_trans, dict)
   | Some set ->
+      print_string "Current work set: " ;
+      Nfa.string_of_state_set set ;
       let module T = Trans_in_states_set in
       let module S = States_set in
+      let rest_worklist = S.remove work_list set in
       let trans_on_all_chars = List.filter_map
-         ~f:(fun c -> let states = move n (e_closure n set) c in
+         ~f:(fun c -> let states = e_closure n (move n set c) in
                 match State_set.is_empty states with
                 | true -> None 
                 | false -> Some (set, c, states) )
          (Alphabet_set.elements n.alphabets)
       in
       let new_state_groups = List.map ~f:(fun (_, _, out) -> out) trans_on_all_chars in
-      let rest_worklist = S.remove work_list set in
       match new_state_groups with
       | [] -> subset_construct n rest_worklist q d_trans dict
       | _ ->
-          let new_states_set = S.of_list new_state_groups in
-          let new_worklist = S.union rest_worklist new_states_set in
+          let new_states_set = S.filter
+            ~f:(fun set -> not (S.mem q set)) (S.of_list new_state_groups) in
+          let new_worklist = S.union new_states_set rest_worklist in
           let new_q = S.union q new_states_set in
           let new_trans = T.union d_trans (T.of_list trans_on_all_chars) in
           let mapping_dict = List.fold_left
@@ -77,6 +93,14 @@ let rec subset_construct (n : nfa) (work_list : states_set) (q : states_set)
             new_state_groups
             ~f:(fun acc group -> Dict.add acc group (Nfa.gen_state_num ()))
           in 
+          print_trans new_trans ;
+          print_string "new_states_set : " ;
+          States_set.iter ~f:(fun x ->  Nfa.string_of_state_set x) new_states_set ;
+          print_string "new_worklist : " ;
+          States_set.iter ~f:(fun x ->  Nfa.string_of_state_set x) new_worklist;
+          print_string "new_q : " ;
+          States_set.iter ~f:(fun x ->  Nfa.string_of_state_set x) new_q;
+          print_endline "";
           subset_construct n new_worklist new_q new_trans mapping_dict
 
 let get_states dict = 
@@ -157,9 +181,7 @@ let dfa_to_string (res : dfa) : unit =
 
 
 let () = 
-  let n = make_nfa "a*b*d" in
-  (*nfa_to_string n *)
-
+  let n = make_nfa "a(b|c)*" in
   let d = nfa_to_dfa n in
   dfa_to_string d
 
