@@ -182,75 +182,208 @@ let next_state_on_c state trans c =
           | true, true -> Some s_out
           | _ -> None)
 
-let get_splits states c : Trans_in_states_set.t = 
-  failwith "unimplemented"
 
-(*val splits : dfa -> state_set -> rest_worklist -> c -> trans_between_set*)
-let split d set rest_worklist c : Trans_in_states_set.t = 
-  let module S = States_set in
-  let module T = Trans_in_states_set in
+let get_image d set c : State_set.t = 
+  let module S = State_set in
+  let module D = D_Transaction_set in
   let trans = d.d_transactions in
-  S.fold rest_worklist ~init:T.empty 
-    ~f:(fun acc states -> T.union (get_splits states c) acc)
-  
+  D.fold trans
+    ~init:State_set.empty
+    ~f:(fun acc (s_in, ch, s_out) -> 
+        match S.mem set s_out, c = ch with
+        | true, true -> S.add acc s_out
+        | _, _ -> acc)
+
+
+let inter_with_partitions partition set = 
+  let module S = States_set in
+  S.elements partition |>
+  List.map ~f:(fun par_set -> State_set.inter set par_set)
+
+let diff_of_iter_partition partition inters = 
+  let module S = States_set in
+  List.map2_exn
+    (S.elements partition)
+    inters
+    ~f:(fun part inter -> State_set.diff part inter)
+
+(* 
+ *  DFA Minimization Algorithm 
+ *  https://www.clear.rice.edu/comp412/Lectures/L07Lex-4.pdf
+ *  for getting new partitions
+ *)
+let iterate inters diffs partition work_list = 
+  let module S = State_set in
+  let module SS = States_set in
+  let inter_diff_set = 
+  List.map2_exn 
+    inters
+    diffs
+    ~f:(fun inter diff -> (inter, diff))
+  in
+  List.fold2_exn
+    inter_diff_set 
+    (States_set.elements partition)
+    ~init:(partition, work_list)
+    ~f:(fun (p, w) (inter, diff) cur_par ->             (*p is partition and w is work list*)
+      match S.is_empty inter, S.is_empty diff with
+      | _, true | true, _ -> (p, w)
+      | false, false ->
+          let rest_partition = States_set.remove p cur_par in
+          let new_partition = SS.add (SS.add rest_partition inter) diff in
+          match States_set.mem w cur_par with
+          | true -> let rest_worklist = States_set.remove w cur_par in
+              let new_worklist = SS.add (SS.add rest_worklist inter) diff in
+              (new_partition, new_worklist)
+          | false ->
+              match S.compare inter diff with
+              | 1 -> 
+                  let new_worklist = States_set.add w diff in
+              (new_partition, new_worklist)
+              | _ ->
+                  let new_worklist = States_set.add w inter in
+              (new_partition, new_worklist))
+
+
 
 
 
 
 (*val hopcroft : work_list -> partition set -> d_state -> trans -> *)
                (*dict -> (d_state * d_trans * dict)*)
-let rec hopcroft d work_list cur_partition trans dict : (States_set.t * Trans_in_states_set.t * state Dict.t) =
+let rec hopcroft partition work_list =
   let module S = States_set in
   let module T = Trans_in_states_set in
+  let module A = Alphabet_set in
   match S.choose work_list with
-  | None -> (cur_partition, trans, dict)
+  | None -> partition
   | Some set ->
-      let rest_worklist = S.remove work_list set in
-      let split_on_chars = List.filter_map
-        (Alphabet_set.elements d.d_alphabets)
-        ~f:(fun c -> 
-          let splits = split d set rest_worklist c in
-          match T.is_empty splits with
-          | true -> None
-          | false -> Some (T.elements splits))
-        |> List.fold_left ~init:[]
-            ~f:(fun acc x -> match x with
-                | [] -> acc  
-                | l -> l @ acc)
+      print_endline "";
+      print_endline "Selected set: " ;
+      Nfa.string_of_state_set set ;
+      print_endline "";
+      print_endline "partitions: " ; 
+      (S.iter partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+      print_endline "" ;
+      print_endline "inters: ";
+      let inter_with_set = inter_with_partitions partition set in
+      (List.iter inter_with_set ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+      print_endline "" ;
+      let diff_inter_par = diff_of_iter_partition partition inter_with_set in
+      print_endline "diff: ";
+      (List.iter diff_inter_par ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+      print_endline "" ;
+      let (new_partition, new_worklist) = 
+        iterate inter_with_set diff_inter_par partition work_list 
       in
-      let new_states = 
-        List.map split_on_chars
-          ~f:(fun (s_in, c, s_out) -> s_out)
-      in 
-      let new_states_set = S.of_list new_states in
-      let new_worklist = S.union new_states_set rest_worklist in
-      let new_partition = S.union new_states_set cur_partition in
-      let new_trans = T.union trans (T.of_list split_on_chars) in
-      let new_dict = List.fold_left ~init:dict new_states
-            ~f:(fun acc x -> Dict.add acc ~key:x ~data:(Nfa.gen_state_num ()))
-      in
-      hopcroft d new_worklist new_partition new_trans new_dict
+      print_endline "new partitions: ";
+      (S.iter new_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+      print_endline "" ;
+      print_endline "new work_list: ";
+      (S.iter new_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+      print_endline "" ;
+      hopcroft new_partition new_worklist
 
-let minimize (d : dfa) = 
+let get_new_partitions (d : dfa) = 
   let module S = States_set in
   let module T = Trans_in_states_set in
-  let partition = S.add (S.singleton (State_set.singleton d.d_start_state)) d.d_final_states in
-  let work_list = partition in
-  let dict = List.fold_left 
-    [State_set.singleton d.d_start_state; d.d_final_states] 
-    ~init:Dict.empty
-    ~f:(fun acc x -> Dict.add acc ~key:x ~data:(Nfa.gen_state_num ()))
+  let all_except_finals = (State_set.diff d.d_states d.d_final_states) in
+  let work_list = S.(add (singleton all_except_finals) d.d_final_states)  in
+  let partition = work_list in
+  hopcroft partition work_list
+
+
+let find_dtrans trans states = 
+  let module D = D_Transaction_set in
+  let one_of_state = match State_set.choose states with
+    | None -> failwith "get empty partition"
+    | Some s -> s
   in
-  hopcroft d work_list partition T.empty dict
+  D.fold
+    trans
+    ~init:D.empty
+    ~f:(fun acc (s_in, c, s_out) ->
+      match s_in = one_of_state with
+      | false -> acc
+      | true  -> D.add acc (s_in, c, s_out))
+
+
+let set_contains_state state partitions = 
+  match 
+    States_set.find partitions 
+    ~f:(fun partition -> State_set.mem partition state)
+  with
+  | None -> failwith "set not found"
+  | Some set -> set
+
+let get_sets_trans partition trans_on_partition all_partition = 
+    D_Transaction_set.elements trans_on_partition 
+  |> List.map ~f:(fun (_, c, s_out ) -> (partition, c, set_contains_state s_out all_partition))
+  |> Trans_in_states_set.of_list
+
+let replace_set_with_state set_trans dict all_partitions = 
+  let module D = D_Transaction_set in
+  let module S = States_set in
+  let module T = Trans_in_states_set in
+  let replace dict states = 
+    match (Dict.find dict states) with
+    | None -> failwith "states set not found in dict"
+    | Some d -> d
+  in
+  S.fold all_partitions
+  ~init:D.empty
+  ~f:(fun acc partition ->
+    let start_is_par = T.filter set_trans 
+      ~f:(fun (set_in, c, set_out) -> 
+        match State_set.compare set_in partition with
+        | 0 -> true | _ -> false)
+    in
+    let new_trans = T.fold start_is_par
+    ~init:D.empty
+    ~f:(fun acc (s_in, c, s_out) ->
+        D.add acc ((replace dict s_in), c, (replace dict s_out)))
+    in D.union acc new_trans)
 
 
 
+let minimize d = 
+  let module S = States_set in
+  let module T = Trans_in_states_set in
+  let new_partitions = get_new_partitions d in
+  let trans = d.d_transactions in
+  let start = d.d_start_state in
+  let finals = d.d_final_states in
+  let m_dict = S.fold
+    new_partitions
+    ~init:Dict.empty
+    ~f:(fun acc p -> Dict.add acc ~key:p ~data:(Nfa.gen_state_num ()))
+  in
+  let set_trans = 
+    S.fold 
+    new_partitions
+    ~init:T.empty
+    ~f:(fun acc partition -> 
+      let trans_on_partition = find_dtrans trans partition in
+      T.union acc
+        (get_sets_trans partition trans_on_partition new_partitions))
+  in
+  let new_d_trans = replace_set_with_state set_trans m_dict new_partitions in
+  let new_start = get_start start m_dict in 
+  let new_states = get_states m_dict in
+  let new_finals = get_finals finals m_dict in
+  {
+    d_states = new_states ;
+    d_alphabets = d.d_alphabets ;
+    d_transactions = new_d_trans ;
+    d_start_state = new_start ;
+    d_final_states = new_finals ;
+  }
 
 
-
-(*let () = *)
-  (*let n = make_nfa "a(b|c)*" in*)
-  (*let d = nfa_to_dfa n in*)
-  (*dfa_to_string d*)
+    
+let () = 
+  let n = make_nfa "(a|b)*abb" in
+  let d = minimize (nfa_to_dfa n) in
+  dfa_to_string d
 
   
