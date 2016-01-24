@@ -51,6 +51,8 @@ module Dict = Map.Make(
   end
 )
 
+
+
 type state_set = State_set.t
 type states_set = States_set.t
 
@@ -69,6 +71,22 @@ type dfa = {
   d_transactions : D_Transaction_set.t ;
   d_start_state  : state ;
   d_final_states : State_set.t;
+}
+
+type m_transaction = state * Alphabet_set.t * state with sexp, compare
+
+module M_Transaction_set = Set.Make(
+  struct 
+    type t = m_transaction with sexp, compare
+  end
+)
+
+type minimized_dfa = {
+  m_states       : State_set.t ;
+  m_alpbabets    : Alphabet_set.t ; 
+  m_transactions : M_Transaction_set.t ;
+  m_start_state  : state ;
+  m_final_states : State_set.t ;
 }
 
 

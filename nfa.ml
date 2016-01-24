@@ -107,8 +107,7 @@ and handle_closure (e : regex) : nfa =
 let string_of_state_set states = 
   print_string "{ " ;
   State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) states ;
-  print_string " }" ;
-  print_endline ""
+  print_string " }" 
 
 let string_of_alphabet_set alphabets = 
   print_string "alphabets = ";
