@@ -172,86 +172,77 @@ let dfa_to_string res =
   print_string "final_states = ";
   State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
   print_endline ""
+
+let minimize_debug_info debug_flag cur_set cur_partition cur_worklist visited image c =
+  let module SS = States_set in
+  match debug_flag with
+  | false -> print_string ""
+  | true -> 
+    print_endline "";
+    print_endline "cur partitions: ";
+    (SS.iter cur_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "cur work_list: ";
+    (SS.iter cur_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "visited: ";
+    (SS.iter visited ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "image: ";
+    Nfa.string_of_state_set image ;
+    print_string (" on " ^ (Char.escaped c));
+    print_endline "" 
   
+let minimize_debug_info_return_none debug_flag =
+  print_endline "Current partition all visited, return"
 
-let next_state_on_c state trans c = 
-  let module S = States_set in
-  let module T = Transaction_set in
-  T.find_map trans
-    ~f:(fun (s_in, ch, s_out) -> match s_in = state, ch = c with
-          | true, true -> Some s_out
-          | _ -> None)
+let minimize_debug_info_update_info debug_flag q p1 p2 image =
+  print_endline "selected q: " ;
+  Nfa.string_of_state_set q ;
+  print_endline "";
+  print_endline "p1: " ;
+  Nfa.string_of_state_set p1 ;
+  print_endline "";
+  print_endline "p2: " ;
+  Nfa.string_of_state_set p2 ;
+  print_endline ""
 
-
-let get_image d set c : State_set.t = 
-  let module S = State_set in
-  let module D = D_Transaction_set in
-  let trans = d.d_transactions in
-  D.fold trans
-    ~init:State_set.empty
-    ~f:(fun acc (s_in, ch, s_out) -> 
-        match S.mem set s_out, c = ch with
-        | true, true -> S.add acc s_out
-        | _, _ -> acc)
-
-
-let inter_with_partitions partition set = 
-  let module S = States_set in
-  S.elements partition |>
-  List.map ~f:(fun par_set -> State_set.inter set par_set)
-
-let diff_of_iter_partition partition inters = 
-  let module S = States_set in
-  List.map2_exn
-    (S.elements partition)
-    inters
-    ~f:(fun part inter -> State_set.diff part inter)
-
-(* 
- *  DFA Minimization Algorithm 
- *  https://www.clear.rice.edu/comp412/Lectures/L07Lex-4.pdf
- *  for getting new partitions
- *)
-let iterate inters diffs partition work_list = 
+let rec helper visited cur_partition cur_worklist image c = 
   let module S = State_set in
   let module SS = States_set in
-  let inter_diff_set = 
-  List.map2_exn 
-    inters
-    diffs
-    ~f:(fun inter diff -> (inter, diff))
-  in
-  List.fold2_exn
-    inter_diff_set 
-    (States_set.elements partition)
-    ~init:(partition, work_list)
-    ~f:(fun (p, w) (inter, diff) cur_par ->             (*p is partition and w is work list*)
-      match S.is_empty inter, S.is_empty diff with
-      | _, true | true, _ -> (p, w)
+  match SS.(choose (diff cur_partition visited)) with
+  | None -> 
+      minimize_debug_info_return_none debug_flag ;
+      (cur_partition, cur_worklist)
+  | Some q ->
+      let new_visited = SS.add visited q in
+      let p1 = S.inter q image in
+      let p2 = S.diff q p1 in
+      minimize_debug_info_update_info debug_flag q p1 p2 image ;
+      match S.is_empty p1, S.is_empty p2 with
+      | true, _ | _, true -> helper new_visited cur_partition cur_worklist image c
       | false, false ->
-          let rest_partition = States_set.remove p cur_par in
-          let new_partition = SS.add (SS.add rest_partition inter) diff in
-          match States_set.mem w cur_par with
-          | true -> let rest_worklist = States_set.remove w cur_par in
-              let new_worklist = SS.add (SS.add rest_worklist inter) diff in
-              (new_partition, new_worklist)
-          | false ->
-              match S.compare inter diff with
-              | 1 -> 
-                  let new_worklist = States_set.add w diff in
-              (new_partition, new_worklist)
-              | _ ->
-                  let new_worklist = States_set.add w inter in
-              (new_partition, new_worklist))
+          let rest_partition = SS.remove cur_partition q in
+          let new_partition = SS.add (SS.add rest_partition p1) p2 in
+          if SS.mem cur_worklist q 
+          then
+            let rest_worklist = SS.remove cur_worklist q in
+            let new_worklist = SS.add (SS.add rest_worklist p1) p2 in
+            helper new_visited new_partition new_worklist image c
+          else
+            match S.compare p1 p2 with
+            | 1 -> helper new_visited new_partition (SS.add cur_worklist p1) image c
+            | _ -> helper new_visited new_partition (SS.add cur_worklist p2) image c
 
+let image_on_c_set ts set c =
+  D_Transaction_set.fold ts
+  ~init:State_set.empty
+  ~f:(fun acc (s_in, ch, s_out) -> 
+    match State_set.mem set s_out, c = ch with
+    | true, true -> State_set.add acc s_in
+    | _, _ -> acc)
 
-
-
-
-
-(*val hopcroft : work_list -> partition set -> d_state -> trans -> *)
-               (*dict -> (d_state * d_trans * dict)*)
-let rec hopcroft partition work_list =
+let rec hopcroft d partition work_list =
   let module S = States_set in
   let module T = Trans_in_states_set in
   let module A = Alphabet_set in
@@ -262,27 +253,16 @@ let rec hopcroft partition work_list =
       print_endline "Selected set: " ;
       Nfa.string_of_state_set set ;
       print_endline "";
-      print_endline "partitions: " ; 
-      (S.iter partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-      print_endline "" ;
-      print_endline "inters: ";
-      let inter_with_set = inter_with_partitions partition set in
-      (List.iter inter_with_set ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-      print_endline "" ;
-      let diff_inter_par = diff_of_iter_partition partition inter_with_set in
-      print_endline "diff: ";
-      (List.iter diff_inter_par ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-      print_endline "" ;
+      let rest_worklist = S.remove work_list set in
       let (new_partition, new_worklist) = 
-        iterate inter_with_set diff_inter_par partition work_list 
+      A.fold d.d_alphabets                                      (* for every alphabet *)
+      ~init:(partition, rest_worklist )
+      ~f:(fun (cur_partition, cur_worklist) c ->
+        let image = image_on_c_set d.d_transactions set c in    (* image = {x | move(x,a) -> set}*)
+        helper S.empty cur_partition cur_worklist image c)
       in
-      print_endline "new partitions: ";
-      (S.iter new_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-      print_endline "" ;
-      print_endline "new work_list: ";
-      (S.iter new_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-      print_endline "" ;
-      hopcroft new_partition new_worklist
+      print_endline "next iteration: " ;
+      hopcroft d new_partition new_worklist
 
 let get_new_partitions (d : dfa) = 
   let module S = States_set in
@@ -290,7 +270,7 @@ let get_new_partitions (d : dfa) =
   let all_except_finals = (State_set.diff d.d_states d.d_final_states) in
   let work_list = S.(add (singleton all_except_finals) d.d_final_states)  in
   let partition = work_list in
-  hopcroft partition work_list
+  hopcroft d partition work_list
 
 
 let find_dtrans trans states = 
@@ -344,8 +324,6 @@ let replace_set_with_state set_trans dict all_partitions =
         D.add acc ((replace dict s_in), c, (replace dict s_out)))
     in D.union acc new_trans)
 
-
-
 let minimize d = 
   let module S = States_set in
   let module T = Trans_in_states_set in
@@ -380,7 +358,6 @@ let minimize d =
   }
 
 
-    
 let () = 
   let n = make_nfa "(a|b)*abb" in
   let d = minimize (nfa_to_dfa n) in
