@@ -8,7 +8,7 @@ exception MultipleStartStates of string
 
 let string_of_state_set = Nfa.string_of_state_set
 
-let debug_flag = false
+let debug_flag = true
 
 let print_trans trans = 
   print_endline "trans: ";
@@ -194,18 +194,24 @@ let minimize_debug_info debug_flag cur_set cur_partition cur_worklist visited im
     print_endline "" 
   
 let minimize_debug_info_return_none debug_flag =
-  print_endline "Current partition all visited, return"
+  match debug_flag with
+  | false -> print_string ""
+  | true -> 
+    print_endline "Current partition all visited, return"
 
 let minimize_debug_info_update_info debug_flag q p1 p2 image =
-  print_endline "selected q: " ;
-  Nfa.string_of_state_set q ;
-  print_endline "";
-  print_endline "p1: " ;
-  Nfa.string_of_state_set p1 ;
-  print_endline "";
-  print_endline "p2: " ;
-  Nfa.string_of_state_set p2 ;
-  print_endline ""
+  match debug_flag with
+  | false -> print_string ""
+  | true -> 
+    print_endline "selected q: " ;
+    Nfa.string_of_state_set q ;
+    print_endline "";
+    print_endline "p1: " ;
+    Nfa.string_of_state_set p1 ;
+    print_endline "";
+    print_endline "p2: " ;
+    Nfa.string_of_state_set p2 ;
+    print_endline ""
 
 let rec helper visited cur_partition cur_worklist image c = 
   let module S = State_set in
@@ -261,14 +267,16 @@ let rec hopcroft d partition work_list =
         let image = image_on_c_set d.d_transactions set c in    (* image = {x | move(x,a) -> set}*)
         helper S.empty cur_partition cur_worklist image c)
       in
-      print_endline "next iteration: " ;
       hopcroft d new_partition new_worklist
 
 let get_new_partitions (d : dfa) = 
   let module S = States_set in
   let module T = Trans_in_states_set in
   let all_except_finals = (State_set.diff d.d_states d.d_final_states) in
-  let work_list = S.(add (singleton all_except_finals) d.d_final_states)  in
+  let work_list = match State_set.is_empty all_except_finals with           (* if start state is also a final state*)
+    | true -> S.singleton d.d_final_states
+    | false -> S.(add (singleton all_except_finals) d.d_final_states)  
+  in
   let partition = work_list in
   hopcroft d partition work_list
 
@@ -336,6 +344,9 @@ let minimize d =
     ~init:Dict.empty
     ~f:(fun acc p -> Dict.add acc ~key:p ~data:(Nfa.gen_state_num ()))
   in
+  print_endline "new_partition: ";
+  (S.iter new_partitions ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+  print_endline "" ;
   let set_trans = 
     S.fold 
     new_partitions
@@ -359,8 +370,10 @@ let minimize d =
 
 
 let () = 
-  let n = make_nfa "(a|b)*abb" in
-  let d = minimize (nfa_to_dfa n) in
-  dfa_to_string d
+  let n = make_nfa "a*" in
+  let d1 = (nfa_to_dfa n) in
+  dfa_to_string d1;
+  let d2 = minimize d1 in
+  dfa_to_string d2
 
   
