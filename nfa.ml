@@ -1,11 +1,14 @@
 open Core.Std
 open Datatypes
 
+module Lazy = Datatypes.Lazy_state
+
 
 let states_union = State_set.union 
 let alphabets_union = Alphabet_set.union 
 let trans_union = Transaction_set.union
 
+let nfa_state_list = Datatypes.Lazy_state.gen_sequence (-1)
 
 
 let states_to_state states state edge  = 
@@ -18,11 +21,11 @@ let rec regex_to_nfa re =
   match re with
   | `Char c -> handle_char c
   | `Concatenation (e1, e2) -> handle_concat e1 e2
-  | `Alternation (e1, e2) -> handle_altern e1 e2 
+  | `Alternation (e1, e2) -> handle_altern e1 e2
   | `Closure e -> handle_closure e
 
 and handle_char c  = 
-  let s1 = Datatypes.gen_state_num () in 
+  let s1  = Datatypes.gen_state_num () in 
   let s2 = Datatypes.gen_state_num () in
   {
     states = State_set.(singleton s1 |> Fn.flip add s2) ;

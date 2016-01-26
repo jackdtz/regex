@@ -15,6 +15,18 @@ type transaction = state * alphabet option * state with sexp, compare
 type d_transaction = state * alphabet * state with sexp, compare
 
 
+module Lazy_state = struct
+  type t = Cons of int * (unit -> t)
+
+  let rec gen_sequence n = Cons (n, fun () -> gen_sequence (n + 1))
+
+  let head (n, _) = n
+  
+  let tail (_, tl) = tl
+
+  let gen_state_num lseq = (head lseq, tail lseq)
+end
+
 module State_set = Set.Make(
   struct
     type t = state with sexp
