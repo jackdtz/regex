@@ -1,6 +1,5 @@
-### Regular expression library for OCaml
+## Regular expression library for OCaml
 
---
 
 REGEX is an OCaml library that implements a subset of Perl regular expression syntax. Several features of REGEX are:
 
@@ -8,7 +7,8 @@ REGEX is an OCaml library that implements a subset of Perl regular expression sy
 - Provide simple and intuitive API
 
 
-Supported Syntax
+###Supported Syntax
+--
 
 ```
           Concatenation(implicit)
@@ -16,6 +16,4 @@ Supported Syntax
 |         Alternation
 *         Match zero or more times 
         
-
-
 ```
