@@ -9,6 +9,13 @@ let string_of_state_set = Nfa.string_of_state_set
 
 let debug_flag = false
 
+
+(********************************************************
+ *                                                      *
+ *                   Debug utilities                    *
+ *                                                      *
+ ********************************************************)
+
 let print_trans trans = 
   print_endline "trans: ";
   Trans_in_states_set.iter
@@ -40,12 +47,87 @@ let debug_info debug_flag cur_set work_list q d_trans =
         ~f:(fun x ->  Nfa.string_of_state_set x; print_endline "") q;
       print_endline "")
 
+let dfa_to_string res =
+  print_endline "DFA : ";
+  print_string "states = ";
+  State_set.iter 
+    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_states ;
+  print_endline "";
+  print_string "alphabets = ";
+  Alphabet_set.iter 
+    ~f:(fun a -> print_string (Char.escaped a)) res.d_alphabets ;
+  print_endline "";
+  D_Transaction_set.iter ~f:(fun (a, b, c) ->
+    print_string ((string_of_int a) ^ " -> " ^ (Char.escaped b) ^ " -> " ^ (string_of_int c) ^ " " ))
+  res.d_transactions;
+  print_endline "";
+  print_endline (string_of_int res.d_start_state);
+  print_string "final_states = ";
+  State_set.iter 
+    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
+  print_endline ""
+
+let minimize_debug_info debug_flag cur_partition cur_worklist visited image c =
+  let module SS = States_set in
+  match debug_flag with
+  | false -> print_string ""
+  | true -> 
+    (print_endline "";
+    print_endline "cur partitions: ";
+    (SS.iter cur_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "cur work_list: ";
+    (SS.iter cur_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "visited: ";
+    (SS.iter visited ~f:(fun set ->(Nfa.string_of_state_set set))) ;
+    print_endline "" ;
+    print_endline "image: ";
+    Nfa.string_of_state_set image ;
+    print_string (" on " ^ (Char.escaped c));
+    print_endline "" )
+  
+let minimize_debug_info_return_none debug_flag =
+  match debug_flag with
+  | false -> print_string ""
+  | true -> print_endline "Current partition all visited, return"
+
+let minimize_debug_info_update_info debug_flag q p1 p2 = 
+  match debug_flag with
+  | false -> print_string ""
+  | true -> 
+    (print_endline "selected q: " ;
+    Nfa.string_of_state_set q ;
+    print_endline "";
+    print_endline "p1: " ;
+    Nfa.string_of_state_set p1 ;
+    print_endline "";
+    print_endline "p2: " ;
+    Nfa.string_of_state_set p2 ;
+    print_endline "")
+
+
+
+let minimize_debug_info_cur_set debug_flag set = 
+  match debug_flag with
+  | false -> print_string ""
+  | true ->
+      (print_endline "";
+      print_endline "Selected set: " ;
+      Nfa.string_of_state_set set ;
+      print_endline "")
+
 let make_nfa str = 
   let tree = Ast.parse str in
     match tree with
     | Some regex -> Nfa.regex_to_nfa regex
     | None -> raise (IllegalInput "input string cannot be parsed")
 
+(********************************************************
+ *                                                      *
+ *                     NFA to DFA                       *
+ *                                                      *
+ ********************************************************)
 
 let move ts cur_reachable c = 
   let edge_is_c = Transaction_set.(filter
@@ -172,76 +254,17 @@ let nfa_to_dfa n =
     d_final_states = new_finals;  
   }
 
-let dfa_to_string res =
-  print_endline "DFA : ";
-  print_string "states = ";
-  State_set.iter 
-    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_states ;
-  print_endline "";
-  print_string "alphabets = ";
-  Alphabet_set.iter 
-    ~f:(fun a -> print_string (Char.escaped a)) res.d_alphabets ;
-  print_endline "";
-  D_Transaction_set.iter ~f:(fun (a, b, c) ->
-    print_string ((string_of_int a) ^ " -> " ^ (Char.escaped b) ^ " -> " ^ (string_of_int c) ^ " " ))
-  res.d_transactions;
-  print_endline "";
-  print_endline (string_of_int res.d_start_state);
-  print_string "final_states = ";
-  State_set.iter 
-    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
-  print_endline ""
-
-let minimize_debug_info debug_flag cur_partition cur_worklist visited image c =
-  let module SS = States_set in
-  match debug_flag with
-  | false -> print_string ""
-  | true -> 
-    (print_endline "";
-    print_endline "cur partitions: ";
-    (SS.iter cur_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "cur work_list: ";
-    (SS.iter cur_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "visited: ";
-    (SS.iter visited ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "image: ";
-    Nfa.string_of_state_set image ;
-    print_string (" on " ^ (Char.escaped c));
-    print_endline "" )
-  
-let minimize_debug_info_return_none debug_flag =
-  match debug_flag with
-  | false -> print_string ""
-  | true -> print_endline "Current partition all visited, return"
-
-let minimize_debug_info_update_info debug_flag q p1 p2 = 
-  match debug_flag with
-  | false -> print_string ""
-  | true -> 
-    (print_endline "selected q: " ;
-    Nfa.string_of_state_set q ;
-    print_endline "";
-    print_endline "p1: " ;
-    Nfa.string_of_state_set p1 ;
-    print_endline "";
-    print_endline "p2: " ;
-    Nfa.string_of_state_set p2 ;
-    print_endline "")
+(********************************************************
+ *                                                      *
+ *                   DFA minimization                   *
+ *                                                      *
+ ********************************************************)
 
 
-
-let minimize_debug_info_cur_set debug_flag set = 
-  match debug_flag with
-  | false -> print_string ""
-  | true ->
-      (print_endline "";
-      print_endline "Selected set: " ;
-      Nfa.string_of_state_set set ;
-      print_endline "")
-
+(* Key part of hopcroft algorithms 
+ * Reference: https://www.clear.rice.edu/comp412/Lectures/L06Lex-3.pdf
+ * Page 6
+ * *)
 let rec helper visited cur_partition cur_worklist image c = 
   let module S = State_set in
   let module SS = States_set in
@@ -269,11 +292,14 @@ let rec helper visited cur_partition cur_worklist image c =
             | 1 -> helper new_visited new_partition (SS.add cur_worklist p1) image c
             | _ -> helper new_visited new_partition (SS.add cur_worklist p2) image c
 
-let image_on_c_set ts set c =
+
+
+(* Return set of states that has a transition into input set on char c *)
+let image_on_c_set ts input_set c =
   D_Transaction_set.fold ts
   ~init:State_set.empty
   ~f:(fun acc (s_in, ch, s_out) -> 
-    match State_set.mem set s_out, c = ch with
+    match State_set.mem input_set s_out, c = ch with
     | true, true -> State_set.add acc s_in
     | _, _ -> acc)
 
@@ -394,13 +420,5 @@ let minimize d =
     d_start_state = new_start ;
     d_final_states = new_finals ;
   }
-
-
-let () = 
-  let n = make_nfa "a*" in
-  let d1 = (nfa_to_dfa n) in
-  dfa_to_string d1;
-  let d2 = minimize d1 in
-  dfa_to_string d2
 
   
