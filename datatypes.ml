@@ -3,10 +3,15 @@ open Sexplib
 open Sexp
 
 
+let state_num = ref (- 1) 
+
+let gen_state_num ()  = 
+  state_num := !state_num + 1;
+  !state_num
+
 type state       = int with sexp, compare
 type alphabet    = char with sexp, compare
 type transaction = state * alphabet option * state with sexp, compare
-
 type d_transaction = state * alphabet * state with sexp, compare
 
 
@@ -72,22 +77,5 @@ type dfa = {
   d_start_state  : state ;
   d_final_states : State_set.t;
 }
-
-type m_transaction = state * Alphabet_set.t * state with sexp, compare
-
-module M_Transaction_set = Set.Make(
-  struct 
-    type t = m_transaction with sexp, compare
-  end
-)
-
-type minimized_dfa = {
-  m_states       : State_set.t ;
-  m_alpbabets    : Alphabet_set.t ; 
-  m_transactions : M_Transaction_set.t ;
-  m_start_state  : state ;
-  m_final_states : State_set.t ;
-}
-
 
 

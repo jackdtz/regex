@@ -2,11 +2,11 @@ open Core.Std
 exception IllegalExpression of string
 
 
-type regex = 
-  | Closure of regex
-  | Char of char
-  | Concatenation of regex * regex
-  | Alternation of regex * regex
+(*type regex = *)
+  (*| Closure of regex*)
+  (*| Char of char*)
+  (*| Concatenation of regex * regex*)
+  (*| Alternation of regex * regex*)
 
 type token = 
   | End
@@ -27,20 +27,20 @@ let token_to_string tok =
 
 let rec regex_to_string r : string = 
   match r with
-  | Closure re -> 
+  | `Closure re -> 
       let res = (regex_to_string re) in 
       "Closure " ^ "(" ^ res ^ ")"
-  | Char c -> "Char " ^ Char.escaped c
-  | Concatenation (r1, r2) -> 
+  | `Char c -> "Char " ^ Char.escaped c
+  | `Concatenation (r1, r2) -> 
      (let res1 = regex_to_string r1 in
       let res2 = regex_to_string r2 in
       "Concatenation " ^ "(" ^ res1 ^ ", " ^ res2 ^ ")")
-  | Alternation (r1, r2) -> 
+  | `Alternation (r1, r2) -> 
      (let res1 = regex_to_string r1 in
       let res2 = regex_to_string r2 in
       "Alternation " ^ "(" ^ res1  ^ ", " ^ res2 ^ ")")
 
-let string_of_parser_res (r : regex option) = 
+let string_of_parser_res r = 
   match r with
   | Some res -> "Some " ^ "(" ^ regex_to_string res ^ ")"
   | None -> "None"
@@ -79,41 +79,41 @@ let lookahead token_list =
  *
  **)
 
-let rec parse_exp (l : token list) : (regex * token list) = 
+let rec parse_exp (l : token list) = 
   let rec helper l term =
     let (t, rest) = lookahead l in
     match t with
     | Pipe -> 
         let (next, l1) = parse_term rest in
-        helper l1 (Alternation (term, next))
+        helper l1 (`Alternation (term, next))
     | _ -> (term, l)
   in
   let (a, l2) = parse_term l in
   helper l2 a
 
-and parse_term (l : token list) : (regex * token list) = 
+and parse_term (l : token list) = 
   let rec helper l factor = 
     let (t, _) = lookahead l in
     match t with
     | Alphabet _ | LParen ->
         let (next, l1) = parse_factor l in
-        helper l1 (Concatenation (factor, next))
+        helper l1 (`Concatenation (factor, next))
     | _ -> (factor, l)
   in
   let (a, l2) = parse_factor l in
   helper l2 a
 
-and parse_factor (l : token list) : (regex * token list) = 
+and parse_factor (l : token list) = 
   let (a, l1) = parse_element l in
   let (t, rest) = lookahead l1 in
   match t with
-  | Star -> (Closure a, rest)
+  | Star -> (`Closure a, rest)
   | _ -> (a, l1)
 
-and parse_element (l : token list) : (regex * token list) = 
+and parse_element (l : token list)  = 
   let (t, rest) = lookahead l in
   match t with
-  | Alphabet c -> (Char c, rest)
+  | Alphabet c -> (`Char c, rest)
   | LParen -> 
      (let (a, l1) = parse_exp rest in
       let (t1, l2) = lookahead l1 in
@@ -122,7 +122,7 @@ and parse_element (l : token list) : (regex * token list) =
       | _ -> raise (IllegalExpression "Unbalanced parentheses"))
   | _ -> raise (IllegalExpression "Unknown token")
 
-let parse (str : string) : regex option = 
+let parse (str : string) = 
   let tok_list = tokenize str in
   if tok_list = [End] 
   then None

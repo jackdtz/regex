@@ -1,25 +1,12 @@
 open Core.Std
-open Ast
 open Datatypes
 
-let state_num = ref (- 1) 
-
-let gen_state_num () : state = 
-  state_num := !state_num + 1;
-  !state_num
 
 let states_union = State_set.union 
 let alphabets_union = Alphabet_set.union 
 let trans_union = Transaction_set.union
 
-let make_nfa states alps trans start finals = 
-  {
-    states = states ;
-    alphabets = alps ;
-    transactions = trans ;
-    start_state = start ;
-    final_states = finals ;
-  }
+
 
 let states_to_state states state edge  = 
   State_set.fold
@@ -27,16 +14,16 @@ let states_to_state states state edge  =
     states
     ~init:Transaction_set.empty
 
-let rec regex_to_nfa (re : regex) : nfa = 
+let rec regex_to_nfa re = 
   match re with
-  | Char c -> handle_char c
-  | Concatenation (e1, e2) -> handle_concat e1 e2
-  | Alternation (e1, e2) -> handle_altern e1 e2 
-  | Closure e -> handle_closure e
+  | `Char c -> handle_char c
+  | `Concatenation (e1, e2) -> handle_concat e1 e2
+  | `Alternation (e1, e2) -> handle_altern e1 e2 
+  | `Closure e -> handle_closure e
 
-and handle_char (c : char) : nfa = 
-  let s1 = gen_state_num () in 
-  let s2 = gen_state_num () in
+and handle_char c  = 
+  let s1 = Datatypes.gen_state_num () in 
+  let s2 = Datatypes.gen_state_num () in
   {
     states = State_set.(singleton s1 |> Fn.flip add s2) ;
     alphabets = Alphabet_set.singleton c ;
@@ -45,12 +32,12 @@ and handle_char (c : char) : nfa =
     final_states = State_set.(singleton s2);
   }
 
-and handle_concat (e1 : regex) (e2 : regex) : nfa = 
+and handle_concat e1 e2 = 
   let nfa1, nfa2 = regex_to_nfa e1, regex_to_nfa e2 in
   let states1, states2 = nfa1.states, nfa2.states in
   let alps1, alps2 = nfa1.alphabets, nfa2.alphabets in
   let trans1, trans2 = nfa1.transactions, nfa2.transactions in
-  let final1, final2 = nfa1.final_states, nfa2.final_states in
+  let final1 = nfa1.final_states in
   {
     states = states_union states1 states2 ;
     alphabets = alphabets_union alps1 alps2;
@@ -60,14 +47,14 @@ and handle_concat (e1 : regex) (e2 : regex) : nfa =
     final_states = nfa2.final_states ;
   }
 
-and handle_altern (e1 : regex) (e2 : regex) = 
+and handle_altern e1 e2 = 
   let nfa1, nfa2 = regex_to_nfa e1, regex_to_nfa e2 in
   let alps1, alps2 = nfa1.alphabets, nfa2.alphabets in
   let trans1, trans2 = nfa1.transactions, nfa2.transactions in
   let start1, start2 = nfa1.start_state, nfa2.start_state in
   let final1, final2 = nfa1.final_states, nfa2.final_states in
-  let s1 = gen_state_num () in
-  let s2 = gen_state_num () in
+  let s1 = Datatypes.gen_state_num () in
+  let s2 = Datatypes.gen_state_num () in
   let flip = Fn.flip in
   {
     states = states_union nfa1.states nfa2.states ;
@@ -81,9 +68,9 @@ and handle_altern (e1 : regex) (e2 : regex) =
     final_states = State_set.(singleton s2);
   }
 
-and handle_closure (e : regex) : nfa = 
-  let s1 = gen_state_num () in 
-  let s2 = gen_state_num () in
+and handle_closure e = 
+  let s1 = Datatypes.gen_state_num () in 
+  let s2 = Datatypes.gen_state_num () in
   let n = regex_to_nfa e in
   let finals_to_start = 
     states_to_state n.final_states n.start_state None
