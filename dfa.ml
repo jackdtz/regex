@@ -1,9 +1,9 @@
 open Core.Std
 open Datatypes
 
-exception IllegalInput of string
 exception IllegalTransformation of string
 exception MultipleStartStates of string
+module Lazy = Datatypes.Lazy_state
 
 let string_of_state_set = Nfa.string_of_state_set
 
@@ -117,11 +117,6 @@ let minimize_debug_info_cur_set debug_flag set =
       Nfa.string_of_state_set set ;
       print_endline "")
 
-let make_nfa str = 
-  let tree = Ast.parse str in
-    match tree with
-    | Some regex -> Nfa.regex_to_nfa regex
-    | None -> raise (IllegalInput "input string cannot be parsed")
 
 (********************************************************
  *                                                      *
@@ -172,9 +167,9 @@ let rec e_closure n cur_reachable =
  * This prevents the program from running into infinite loop
  * and we do not need to return it
  * *)
-let rec subset_construct n work_list q d_trans dict =
+let rec subset_construct n work_list q d_trans dict lseq =
   match States_set.choose work_list with
-  | None -> (d_trans, dict)
+  | None -> (d_trans, dict, lseq)
   | Some set ->
       debug_info debug_flag set work_list q d_trans ;
       let module T = Trans_in_states_set in
@@ -191,20 +186,21 @@ let rec subset_construct n work_list q d_trans dict =
         List.map ~f:(fun (_, _, out) -> out) trans_on_all_chars 
       in
       match new_state_groups with
-      | [] -> subset_construct n rest_worklist q d_trans dict
+      | [] -> subset_construct n rest_worklist q d_trans dict lseq
       | _ ->
           let new_states_set = S.filter
             ~f:(fun set -> not (S.mem q set)) (S.of_list new_state_groups) in
           let new_worklist = S.union new_states_set rest_worklist in
           let new_q = S.union q new_states_set in
           let new_trans = T.union d_trans (T.of_list trans_on_all_chars) in
-          let mapping_dict = List.fold_left
-            ~init:dict
+          let (mapping_dict, lseq_rest) = List.fold_left
+            ~init:(dict, lseq)
             new_state_groups
-            ~f:(fun acc group -> 
-              Dict.add acc ~key:group ~data:(Datatypes.gen_state_num ()))
+            ~f:(fun (d, seq) group -> 
+              let (s, rest) = Lazy.gen_state_num seq in
+                (Dict.add d ~key:group ~data:s, rest))
           in 
-          subset_construct n new_worklist new_q new_trans mapping_dict
+          subset_construct n new_worklist new_q new_trans mapping_dict lseq_rest
 
 let get_states dict = 
   Dict.data dict |> State_set.of_list
@@ -235,14 +231,15 @@ let get_start start dict =
   | hd :: [] -> hd
   | _ -> raise (MultipleStartStates "")
   
-let nfa_to_dfa n = 
+let nfa_to_dfa n lseq = 
   let start = e_closure n (State_set.singleton n.start_state) in 
   let work_list = States_set.singleton start in
   let q = work_list in
-  let dict = Dict.singleton start (Datatypes.gen_state_num ()) in
+  let (s, lseq1) = Lazy.gen_state_num lseq in
+  let dict  = Dict.singleton start s in
   let d_trans_set = Trans_in_states_set.empty in
-  let (state_trans, dict) = 
-    subset_construct n work_list q d_trans_set dict in
+  let (state_trans, dict, lseq2) = 
+    subset_construct n work_list q d_trans_set dict lseq1 in
   let new_states = get_states dict in
   let new_trans = transform_trans state_trans dict in
   let new_finals = get_finals n.final_states dict in
@@ -385,17 +382,19 @@ let replace_set_with_state set_trans dict all_partitions =
         D.add acc ((replace dict s_in), c, (replace dict s_out)))
     in D.union acc new_trans)
 
-let minimize d = 
+let minimize d lseq = 
   let module S = States_set in
   let module T = Trans_in_states_set in
   let new_partitions = get_new_partitions d in
   let trans = d.d_transactions in
   let start = d.d_start_state in
   let finals = d.d_final_states in
-  let m_dict = S.fold
+  let (m_dict, _) = S.fold
     new_partitions
-    ~init:Dict.empty
-    ~f:(fun acc p -> Dict.add acc ~key:p ~data:(Datatypes.gen_state_num ()))
+    ~init:(Dict.empty, lseq)
+    ~f:(fun (d, seq) p -> 
+      let (s, rest) = Lazy.gen_state_num seq in
+      (Dict.add d ~key:p ~data:s, rest))
   in
   print_endline "new_partition: ";
   (S.iter new_partitions ~f:(fun set ->(Nfa.string_of_state_set set))) ;
@@ -421,4 +420,3 @@ let minimize d =
     d_final_states = new_finals ;
   }
 
-  

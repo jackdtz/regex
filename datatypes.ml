@@ -2,13 +2,6 @@ open Core.Std
 open Sexplib
 open Sexp
 
-
-let state_num = ref (- 1) 
-
-let gen_state_num ()  = 
-  state_num := !state_num + 1;
-  !state_num
-
 type state       = int with sexp, compare
 type alphabet    = char with sexp, compare
 type transaction = state * alphabet option * state with sexp, compare
@@ -20,9 +13,9 @@ module Lazy_state = struct
 
   let rec gen_sequence n = Cons (n, fun () -> gen_sequence (n + 1))
 
-  let head (n, _) = n
+  let head (Cons (n, _)) = n
   
-  let tail (_, tl) = tl
+  let tail (Cons (_, tl)) = tl ()
 
   let gen_state_num lseq = (head lseq, tail lseq)
 end
