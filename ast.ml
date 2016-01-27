@@ -1,13 +1,6 @@
 open Core.Std
 exception IllegalExpression of string
 
-
-(*type regex = *)
-  (*| Closure of regex*)
-  (*| Char of char*)
-  (*| Concatenation of regex * regex*)
-  (*| Alternation of regex * regex*)
-
 type token = 
   | End
   | Alphabet of char
@@ -25,7 +18,7 @@ let token_to_string tok =
   | Pipe -> "|"
   | End -> "END"
 
-let rec regex_to_string r : string = 
+let rec regex_to_string r = 
   match r with
   | `Closure re -> 
       let res = (regex_to_string re) in 
@@ -45,7 +38,7 @@ let string_of_parser_res r =
   | Some res -> "Some " ^ "(" ^ regex_to_string res ^ ")"
   | None -> "None"
 
-let string_to_char_list (str:string) : char list = 
+let string_to_char_list str = 
   let rec helper (i:int) (col:char list) = 
     if i < 0 then col else helper (i - 1) (str.[i] :: col)
   in
@@ -79,7 +72,7 @@ let lookahead token_list =
  *
  **)
 
-let rec parse_exp (l : token list) = 
+let rec parse_exp l = 
   let rec helper l term =
     let (t, rest) = lookahead l in
     match t with
@@ -91,38 +84,38 @@ let rec parse_exp (l : token list) =
   let (a, l2) = parse_term l in
   helper l2 a
 
-and parse_term (l : token list) = 
-  let rec helper l factor = 
-    let (t, _) = lookahead l in
+  and parse_term l = 
+    let rec helper l factor = 
+      let (t, _) = lookahead l in
+      match t with
+      | Alphabet _ | LParen ->
+          let (next, l1) = parse_factor l in
+          helper l1 (`Concatenation (factor, next))
+      | _ -> (factor, l)
+    in
+    let (a, l2) = parse_factor l in
+    helper l2 a
+
+  and parse_factor l = 
+    let (a, l1) = parse_element l in
+    let (t, rest) = lookahead l1 in
     match t with
-    | Alphabet _ | LParen ->
-        let (next, l1) = parse_factor l in
-        helper l1 (`Concatenation (factor, next))
-    | _ -> (factor, l)
-  in
-  let (a, l2) = parse_factor l in
-  helper l2 a
+    | Star -> (`Closure a, rest)
+    | _ -> (a, l1)
 
-and parse_factor (l : token list) = 
-  let (a, l1) = parse_element l in
-  let (t, rest) = lookahead l1 in
-  match t with
-  | Star -> (`Closure a, rest)
-  | _ -> (a, l1)
+  and parse_element l = 
+    let (t, rest) = lookahead l in
+    match t with
+    | Alphabet c -> (`Char c, rest)
+    | LParen -> 
+       (let (a, l1) = parse_exp rest in
+        let (t1, l2) = lookahead l1 in
+        match t1 with
+        | RParen -> (a, l2)
+        | _ -> raise (IllegalExpression "Unbalanced parentheses"))
+    | _ -> raise (IllegalExpression "Unknown token")
 
-and parse_element (l : token list)  = 
-  let (t, rest) = lookahead l in
-  match t with
-  | Alphabet c -> (`Char c, rest)
-  | LParen -> 
-     (let (a, l1) = parse_exp rest in
-      let (t1, l2) = lookahead l1 in
-      match t1 with
-      | RParen -> (a, l2)
-      | _ -> raise (IllegalExpression "Unbalanced parentheses"))
-  | _ -> raise (IllegalExpression "Unknown token")
-
-let parse (str : string) = 
+let parse str = 
   let tok_list = tokenize str in
   if tok_list = [End] 
   then None

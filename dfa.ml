@@ -157,7 +157,14 @@ let rec e_closure n cur_reachable =
   | 0 -> new_reachable
   | _ -> e_closure n new_reachable
 
-
+let make_dfa ~states:s ~alphabets:alp ~trans:t ~start:ss ~finals:f = 
+  {
+    d_states       = s; 
+    d_alphabets    = alp; 
+    d_transactions = t; 
+    d_start_state  = ss; 
+    d_final_states = f;
+  }
 
 (* q and worklist are sets of NFA states
  * q and worklist are the same at the beginning,
@@ -239,17 +246,14 @@ let nfa_to_dfa n lseq =
   let dict  = Dict.singleton start s in
   let d_trans_set = Trans_in_states_set.empty in
   let (state_trans, dict, lseq2) = 
-    subset_construct n work_list q d_trans_set dict lseq1 in
-  let new_states = get_states dict in
-  let new_trans = transform_trans state_trans dict in
-  let new_finals = get_finals n.final_states dict in
-  {
-    d_states = new_states ;
-    d_alphabets = n.alphabets;
-    d_transactions = new_trans;
-    d_start_state = get_start n.start_state dict;
-    d_final_states = new_finals;  
-  }
+    subset_construct n work_list q d_trans_set dict lseq1 
+  in
+  make_dfa
+    ~start:(get_start n.start_state dict)
+    ~finals:(get_finals n.final_states dict)
+    ~states:(get_states dict)
+    ~alphabets:n.alphabets
+    ~trans:(transform_trans state_trans dict)
 
 (********************************************************
  *                                                      *
@@ -288,8 +292,6 @@ let rec helper visited cur_partition cur_worklist image c =
             match S.compare p1 p2 with
             | 1 -> helper new_visited new_partition (SS.add cur_worklist p1) image c
             | _ -> helper new_visited new_partition (SS.add cur_worklist p2) image c
-
-
 
 (* Return set of states that has a transition into input set on char c *)
 let image_on_c_set ts input_set c =
@@ -408,15 +410,10 @@ let minimize d lseq =
       T.union acc
         (get_sets_trans partition trans_on_partition new_partitions))
   in
-  let new_d_trans = replace_set_with_state set_trans m_dict new_partitions in
-  let new_start = get_start start m_dict in 
-  let new_states = get_states m_dict in
-  let new_finals = get_finals finals m_dict in
-  {
-    d_states = new_states ;
-    d_alphabets = d.d_alphabets ;
-    d_transactions = new_d_trans ;
-    d_start_state = new_start ;
-    d_final_states = new_finals ;
-  }
+  make_dfa
+    ~start:(get_start start m_dict)
+    ~finals:(get_finals finals m_dict)
+    ~states:(get_states m_dict)
+    ~alphabets:d.d_alphabets
+    ~trans:(replace_set_with_state set_trans m_dict new_partitions)
 
