@@ -11,9 +11,9 @@ REGEX is an OCaml library that implements a subset of Perl regular expression sy
 --
 
 ```
-          Concatenation(implicit)
-()        Grouping
-|         Alternation
-*         Match zero or more times 
+ab        Concatenation
+(ab)      Grouping
+a|b       Alternation
+a*        Match 'a' zero or more times 
         
 ```
