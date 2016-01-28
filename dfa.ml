@@ -5,7 +5,6 @@ exception IllegalTransformation of string
 exception MultipleStartStates of string
 module Lazy = Datatypes.Lazy_state
 
-let string_of_state_set = Nfa.string_of_state_set
 
 let debug_flag = false
 
@@ -16,106 +15,68 @@ let debug_flag = false
  *                                                      *
  ********************************************************)
 
-let print_trans trans = 
-  print_endline "trans: ";
-  Trans_in_states_set.iter
-    ~f:(fun (s_in, c, s_out) ->
-      Nfa.string_of_state_set s_in;
-      print_string " -> ";
-      print_string (Char.escaped c);
-      print_string " -> ";
-      Nfa.string_of_state_set s_out;
-      print_endline "")
-  trans
 
-let debug_info debug_flag cur_set work_list q d_trans = 
+let debug_info debug_flag cur_set work_list q d_set_trans = 
   match debug_flag with
-  | false -> print_string ""
+  | false -> ""
   | true  -> 
-      (print_endline "" ;
-      print_string "Current work set: " ;
-      Nfa.string_of_state_set cur_set ;
-      print_endline "";
-      print_trans d_trans ;
-      print_endline ""; 
-      print_endline "new_worklist : " ;
-      States_set.iter 
-        ~f:(fun x ->  Nfa.string_of_state_set x; print_endline "") work_list;
-      print_endline "" ;
-      print_endline "new_q : " ;
-      States_set.iter 
-        ~f:(fun x ->  Nfa.string_of_state_set x; print_endline "") q;
-      print_endline "")
+      "Current work set: \n" ^
+      (Datatypes.string_of_state_set cur_set) ^ "\n" ^
+      "D_set_transactions: \n" ^
+      (Datatypes.string_of_setTrans_set d_set_trans) ^ "\n" ^
+      "New worklist: " ^
+      (Datatypes.string_of_states_set work_list) ^ "\n" ^
+      "New Q: " ^ "\n" ^
+      (Datatypes.string_of_states_set q) ^ "\n"
 
 let dfa_to_string res =
-  print_endline "DFA : ";
-  print_string "states = ";
-  State_set.iter 
-    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_states ;
-  print_endline "";
-  print_string "alphabets = ";
-  Alphabet_set.iter 
-    ~f:(fun a -> print_string (Char.escaped a)) res.d_alphabets ;
-  print_endline "";
-  D_Transaction_set.iter ~f:(fun (a, b, c) ->
-    print_string ((string_of_int a) ^ " -> " ^ (Char.escaped b) ^ " -> " ^ (string_of_int c) ^ " " ))
-  res.d_transactions;
-  print_endline "";
-  print_endline (string_of_int res.d_start_state);
-  print_string "final_states = ";
-  State_set.iter 
-    ~f:(fun a -> print_string ((string_of_int a) ^ " ")) res.d_final_states ;
-  print_endline ""
+  let module D = Datatypes in
+  "DFA: \n" ^
+  "States: " ^ (D.string_of_state_set res.d_states) ^ "\n" ^
+  "Alphabets: " ^ (D.string_of_alps_set res.d_alphabets) ^ "\n" ^
+  "Transaction: " ^ (D.string_of_dtrans_set res.d_transactions) ^ "\n" ^
+  "Start state: " ^ (D.string_of_state res.d_start_state) ^ "\n" ^
+  "Final states: " ^ (D.string_of_state_set res.d_final_states) ^ "\n"
 
 let minimize_debug_info debug_flag cur_partition cur_worklist visited image c =
-  let module SS = States_set in
+  let module D = Datatypes in
   match debug_flag with
-  | false -> print_string ""
+  | false -> ""
   | true -> 
-    (print_endline "";
-    print_endline "cur partitions: ";
-    (SS.iter cur_partition ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "cur work_list: ";
-    (SS.iter cur_worklist ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "visited: ";
-    (SS.iter visited ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-    print_endline "" ;
-    print_endline "image: ";
-    Nfa.string_of_state_set image ;
-    print_string (" on " ^ (Char.escaped c));
-    print_endline "" )
+      "Current partitions: \n" ^
+      (D.string_of_states_set cur_partition) ^ "\n" ^
+      "Current work list: \n" ^
+      (D.string_of_states_set cur_worklist) ^ "\n" ^
+      "Visited: \n" ^
+      (D.string_of_state_set visited) ^ "\n" ^
+      "Image on " ^ Char.escaped c ^ ": \n" ^
+      (D.string_of_alps_set image) ^ "\n"
+
   
 let minimize_debug_info_return_none debug_flag =
   match debug_flag with
-  | false -> print_string ""
-  | true -> print_endline "Current partition all visited, return"
+  | false -> ""
+  | true -> "Current partition all visited, return"
 
 let minimize_debug_info_update_info debug_flag q p1 p2 = 
+  let module D = Datatypes in
   match debug_flag with
-  | false -> print_string ""
+  | false -> ""
   | true -> 
-    (print_endline "selected q: " ;
-    Nfa.string_of_state_set q ;
-    print_endline "";
-    print_endline "p1: " ;
-    Nfa.string_of_state_set p1 ;
-    print_endline "";
-    print_endline "p2: " ;
-    Nfa.string_of_state_set p2 ;
-    print_endline "")
-
-
+      "Selected Q: \n" ^
+      (D.string_of_state_set q) ^ "\n" ^
+      "P1: \n" ^
+      (D.string_of_state_set p1) ^ "\n" ^
+      "P2: \n" ^
+      (D.string_of_state_set p2) ^ "\n" 
 
 let minimize_debug_info_cur_set debug_flag set = 
+  let module D = Datatypes in
   match debug_flag with
-  | false -> print_string ""
+  | false -> ""
   | true ->
-      (print_endline "";
-      print_endline "Selected set: " ;
-      Nfa.string_of_state_set set ;
-      print_endline "")
+      "Selected set: \n" ^
+      (D.string_of_state_set set)  
 
 
 (********************************************************
@@ -174,11 +135,11 @@ let make_dfa ~states:s ~alphabets:alp ~trans:t ~start:ss ~finals:f =
  * This prevents the program from running into infinite loop
  * and we do not need to return it
  * *)
-let rec subset_construct n work_list q d_trans dict lseq =
+let rec subset_construct n work_list q d_set_trans dict lseq =
   match States_set.choose work_list with
-  | None -> (d_trans, dict, lseq)
+  | None -> (d_set_trans, dict, lseq)
   | Some set ->
-      debug_info debug_flag set work_list q d_trans ;
+      Printf.printf "%s\n" (debug_info debug_flag set work_list q d_set_trans) ;
       let module T = Trans_in_states_set in
       let module S = States_set in
       let rest_worklist = S.remove work_list set in
@@ -193,13 +154,13 @@ let rec subset_construct n work_list q d_trans dict lseq =
         List.map ~f:(fun (_, _, out) -> out) trans_on_all_chars 
       in
       match new_state_groups with
-      | [] -> subset_construct n rest_worklist q d_trans dict lseq
+      | [] -> subset_construct n rest_worklist q d_set_trans dict lseq
       | _ ->
           let new_states_set = S.filter
             ~f:(fun set -> not (S.mem q set)) (S.of_list new_state_groups) in
           let new_worklist = S.union new_states_set rest_worklist in
           let new_q = S.union q new_states_set in
-          let new_trans = T.union d_trans (T.of_list trans_on_all_chars) in
+          let new_trans = T.union d_set_trans (T.of_list trans_on_all_chars) in
           let (mapping_dict, lseq_rest) = List.fold_left
             ~init:(dict, lseq)
             new_state_groups
@@ -271,13 +232,13 @@ let rec helper visited cur_partition cur_worklist image c =
   let module SS = States_set in
   match SS.(choose (diff cur_partition visited)) with
   | None -> 
-      minimize_debug_info_return_none debug_flag ;
+      Printf.printf "%s\n" (minimize_debug_info_return_none debug_flag) ;
       (cur_partition, cur_worklist)
   | Some q ->
       let new_visited = SS.add visited q in
       let p1 = S.inter q image in
       let p2 = S.diff q p1 in
-      minimize_debug_info_update_info debug_flag q p1 p2 ;
+      Printf.printf "%s\n" (minimize_debug_info_update_info debug_flag q p1 p2) ;
       match S.is_empty p1, S.is_empty p2 with
       | true, _ | _, true -> helper new_visited cur_partition cur_worklist image c
       | false, false ->
@@ -309,7 +270,7 @@ let rec hopcroft d partition work_list =
   match S.choose work_list with
   | None -> partition
   | Some set ->
-      minimize_debug_info_cur_set debug_flag set ;
+      Printf.printf "%s\n" (minimize_debug_info_cur_set debug_flag set) ;
       let rest_worklist = S.remove work_list set in
       let (new_partition, new_worklist) = 
       A.fold d.d_alphabets                                      (* for every alphabet *)
@@ -384,6 +345,14 @@ let replace_set_with_state set_trans dict all_partitions =
         D.add acc ((replace dict s_in), c, (replace dict s_out)))
     in D.union acc new_trans)
 
+let string_of_partitions debug_flag partitions = 
+  match debug_flag with
+  | false -> ""
+  | true ->
+      "Resulted partitions: \n" ^ 
+      (string_of_states_set partitions) ^ "\n"
+
+
 let minimize d lseq = 
   let module S = States_set in
   let module T = Trans_in_states_set in
@@ -398,9 +367,7 @@ let minimize d lseq =
       let (s, rest) = Lazy.gen_state_num seq in
       (Dict.add d ~key:p ~data:s, rest))
   in
-  print_endline "new_partition: ";
-  (S.iter new_partitions ~f:(fun set ->(Nfa.string_of_state_set set))) ;
-  print_endline "" ;
+  Printf.printf "%s\n" (string_of_partitions debug_flag new_partitions);
   let set_trans = 
     S.fold 
     new_partitions

@@ -102,39 +102,14 @@ and handle_closure e lseq =
         |> Fn.flip add (s1, None, n.start_state))
   in (nfa_closure, lseq3)
 
-let string_of_state_set states = 
-  print_string "{ " ;
-  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) states ;
-  print_string " }" 
-
-let string_of_alphabet_set alphabets = 
-  print_string "alphabets = ";
-  Alphabet_set.iter ~f:(fun a -> print_string (Char.escaped a)) alphabets ;
-  print_endline ""
-
-let string_of_transactions transactions = 
-  Transaction_set.iter ~f:(fun (a, b, c) ->
-    match b with
-    | Some k -> print_string ((string_of_int a) ^ " -> " ^ (Char.escaped k) ^ " -> " ^ (string_of_int c) ^ " " )
-    | None -> print_string ((string_of_int a) ^ " ->" ^ "e"  ^ "-> " ^ (string_of_int c) ^ ", "))
-  transactions;
-  print_endline ""
-
-let string_of_start start_state= 
-  print_endline (string_of_int start_state)
-
-let string_of_finals final_states = 
-  print_string "final_states = ";
-  State_set.iter ~f:(fun a -> print_string ((string_of_int a) ^ " ")) final_states ;
-  print_endline ""
-
 let nfa_to_string res =
-  print_endline "NFA :";
-  string_of_state_set res.states;
-  string_of_alphabet_set res.alphabets;
-  string_of_transactions res.transactions;
-  string_of_start res.start_state;
-  string_of_finals res.final_states
+  let module D = Datatypes in
+  "NFA: \n" ^
+  "States: " ^ (D.string_of_state_set res.states) ^ "\n" ^
+  "Alphabets: " ^ (D.string_of_alps_set res.alphabets) ^ "\n" ^
+  "Transaction: " ^ (D.string_of_trans_set res.transactions) ^ "\n" ^
+  "Start state: " ^ (D.string_of_state res.start_state) ^ "\n" ^
+  "Final states: " ^ (D.string_of_state_set res.final_states)
 
 let string_to_nfa str lseq = 
   let tree = Ast.parse str in
