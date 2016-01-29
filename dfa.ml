@@ -23,7 +23,7 @@ let debug_info debug_flag cur_set work_list q d_set_trans =
       Printf.printf "%s\n"
       ("Current work set: \n" ^
       (Datatypes.string_of_state_set cur_set) ^ "\n" ^
-      "D_set_transactions: \n" ^
+      "D_set_transitions: \n" ^
       (Datatypes.string_of_setTrans_set d_set_trans) ^ "\n" ^
       "New worklist: " ^
       (Datatypes.string_of_states_set work_list) ^ "\n" ^
@@ -36,7 +36,7 @@ let dfa_to_string res =
   "DFA: \n" ^
   "States: " ^ (D.string_of_state_set res.d_states) ^ "\n" ^
   "Alphabets: " ^ (D.string_of_alps_set res.d_alphabets) ^ "\n" ^
-  "Transaction: " ^ (D.string_of_dtrans_set res.d_transactions) ^ "\n" ^
+  "Transition: " ^ (D.string_of_dtrans_map res.d_transitions) ^ "\n" ^
   "Start state: " ^ (D.string_of_state res.d_start_state) ^ "\n" ^
   "Final states: " ^ (D.string_of_state_set res.d_final_states) ^ "\n"
 
@@ -92,7 +92,7 @@ let minimize_debug_info_cur_set debug_flag set =
  ********************************************************)
 
 let move ts cur_reachable c = 
-  let edge_is_c = Transaction_set.(filter
+  let edge_is_c = Transition_set.(filter
     ~f:(fun t -> match t with 
       | (_, None, _)-> false
       | (in_state, Some e, _) -> 
@@ -102,20 +102,20 @@ let move ts cur_reachable c =
   in
   let reachables = List.map
     ~f:(fun t -> match t with
-    | (_, _, out) -> out) (Transaction_set.elements edge_is_c)
+    | (_, _, out) -> out) (Transition_set.elements edge_is_c)
   in
   State_set.of_list reachables
 
 let rec e_closure n cur_reachable = 
-  let ts = n.transactions in
-  let e_moveable = Transaction_set.filter
+  let ts = n.transitions in
+  let e_moveable = Transition_set.filter
     ~f:(fun t -> match t with 
       | (_, Some _, _) -> false
       | (in_state, None, _) -> 
           if State_set.mem cur_reachable in_state then true else false)
     ts
   in 
-  let e_moveable_trans = Transaction_set.elements e_moveable in
+  let e_moveable_trans = Transition_set.elements e_moveable in
   let e_reachable_states = State_set.of_list 
   (List.map
     ~f:(fun ts -> match ts with | (_, _, out) -> out) e_moveable_trans) in
@@ -128,7 +128,7 @@ let make_dfa ~states:s ~alphabets:alp ~trans:t ~start:ss ~finals:f =
   {
     d_states       = s; 
     d_alphabets    = alp; 
-    d_transactions = t; 
+    d_transitions = t; 
     d_start_state  = ss; 
     d_final_states = f;
   }
@@ -150,7 +150,7 @@ let rec subset_construct n work_list q d_set_trans dict lseq =
       let module S = States_set in
       let rest_worklist = S.remove work_list set in
       let trans_on_all_chars = List.filter_map
-         ~f:(fun c -> let states = e_closure n (move n.transactions set c) in
+         ~f:(fun c -> let states = e_closure n (move n.transitions set c) in
                 match State_set.is_empty states with
                 | true -> None 
                 | false -> Some (set, c, states) )
@@ -179,15 +179,16 @@ let rec subset_construct n work_list q d_set_trans dict lseq =
 let get_states dict = 
   Dict.data dict |> State_set.of_list
 
-let transform_trans trans_in_set dict =
+(* Replace each state set trans to state trans *)
+let transform_trans trans_in_set dict : (state D_Transition_map.t) =
   let module T = Trans_in_states_set in
-  let module D = D_Transaction_set in
+  let module D = D_Transition_map in
   T.elements trans_in_set
   |> List.map ~f:(fun (s_in, c, s_out) ->
       match Dict.find dict s_in, Dict.find dict s_out with
-      | Some d1, Some d2 -> (d1, c, d2)
+      | Some d1, Some d2 -> ((d1, c), d2)
       | _ -> raise (IllegalTransformation ""))
-  |> D.of_list
+  |> D.of_alist_exn
 
 let get_finals finals dict = 
   let not_empty set = not (State_set.is_empty set) in
@@ -262,9 +263,9 @@ let rec helper visited cur_partition cur_worklist image c =
 
 (* Return set of states that has a transition into input set on char c *)
 let image_on_c_set ts input_set c =
-  D_Transaction_set.fold ts
+  D_Transition_map.fold ts
   ~init:State_set.empty
-  ~f:(fun acc (s_in, ch, s_out) -> 
+  ~f:(fun ~key:(s_in, ch) ~data:s_out acc -> 
     match State_set.mem input_set s_out, c = ch with
     | true, true -> State_set.add acc s_in
     | _, _ -> acc)
@@ -282,7 +283,7 @@ let rec hopcroft d partition work_list =
       A.fold d.d_alphabets                                      (* for every alphabet *)
       ~init:(partition, rest_worklist )
       ~f:(fun (cur_partition, cur_worklist) c ->
-        let image = image_on_c_set d.d_transactions set c in    (* image = {x | move(x,a) -> set}*)
+        let image = image_on_c_set d.d_transitions set c in    (* image = {x | move(x,a) -> set}*)
         helper S.empty cur_partition cur_worklist image c)
       in
       hopcroft d new_partition new_worklist
@@ -300,7 +301,7 @@ let get_new_partitions (d : dfa) =
 
 
 let find_dtrans trans states = 
-  let module D = D_Transaction_set in
+  let module D = D_Transition_map in
   let one_of_state = match State_set.choose states with
     | None -> failwith "get empty partition"
     | Some s -> s
@@ -308,10 +309,10 @@ let find_dtrans trans states =
   D.fold
     trans
     ~init:D.empty
-    ~f:(fun acc (s_in, c, s_out) ->
+    ~f:(fun ~key:(s_in, c) ~data:s_out acc ->
       match s_in = one_of_state with
       | false -> acc
-      | true  -> D.add acc (s_in, c, s_out))
+      | true  -> D.add acc ~key:(s_in, c) ~data:s_out)
 
 
 let set_contains_state state partitions = 
@@ -323,13 +324,13 @@ let set_contains_state state partitions =
   | Some set -> set
 
 let get_sets_trans partition trans_on_partition all_partition = 
-    D_Transaction_set.elements trans_on_partition 
-  |> List.map ~f:(fun (_, c, s_out ) -> 
+    D_Transition_map.to_alist trans_on_partition 
+  |> List.map ~f:(fun ((_, c), s_out) -> 
       (partition, c, set_contains_state s_out all_partition))
   |> Trans_in_states_set.of_list
 
 let replace_set_with_state set_trans dict all_partitions = 
-  let module D = D_Transaction_set in
+  let module D = D_Transition_map in
   let module S = States_set in
   let module T = Trans_in_states_set in
   let replace dict states = 
@@ -345,11 +346,10 @@ let replace_set_with_state set_trans dict all_partitions =
         match State_set.compare set_in partition with
         | 0 -> true | _ -> false)
     in
-    let new_trans = T.fold start_is_par
-    ~init:D.empty
+    T.fold start_is_par
+    ~init:acc
     ~f:(fun acc (s_in, c, s_out) ->
-        D.add acc ((replace dict s_in), c, (replace dict s_out)))
-    in D.union acc new_trans)
+        D.add acc ~key:((replace dict s_in), c) ~data:(replace dict s_out)))
 
 let printstring_of_partitions debug_flag partitions = 
   match debug_flag with
@@ -359,7 +359,6 @@ let printstring_of_partitions debug_flag partitions =
       ("Resulted partitions: \n" ^ 
       (string_of_states_set partitions))
 
-
 let printstring_of_dfa debug_flag dfa = 
   match debug_flag with
   | false -> print_string ""
@@ -368,13 +367,11 @@ let printstring_of_dfa debug_flag dfa =
       ("Resulted dfa: \n" ^ 
         dfa_to_string dfa)
 
-
-
 let minimize d lseq = 
   let module S = States_set in
   let module T = Trans_in_states_set in
   let new_partitions = get_new_partitions d in
-  let trans = d.d_transactions in
+  let trans = d.d_transitions in
   let start = d.d_start_state in
   let finals = d.d_final_states in
   let (m_dict, _) = S.fold

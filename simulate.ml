@@ -15,19 +15,14 @@ let string_to_dfa str n_lseq d_lseq m_lseq =
   Dfa.(minimize (nfa_to_dfa n d_lseq) m_lseq)
 
 let move trans current tok = 
-  Core.Std.Set.find_map trans
-    ~f:(fun (sin, c, sout) ->
-        match sin = current, c = tok with
-        | true, true -> Some sout
-        | _, _ -> None)
-
+  D_Transition_map.find trans (current, tok)
 
 let simulate d input = 
   let rec helper d toks current =
-    let dtrans = d.d_transactions in
+    let dtrans = d.d_transitions in
     match toks with
     | [] -> 
-        (match Core.Std.Set.mem d.d_final_states current with
+        (match State_set.mem d.d_final_states current with
         | false -> Reject
         | true -> Accept)
     | hd :: tl ->
@@ -42,8 +37,7 @@ let simulate d input =
 
 
 let () = 
-  Printf.printf "%s\n" (Ast.string_of_parser_res (Ast.parse "a*(b|c)dde")) ;
-  let d = string_to_dfa "a*(b|c)dde" nfa_states dfa_states mdfa_states in
-  match simulate d "aaacdde" with
+  let d = string_to_dfa "a*" nfa_states dfa_states mdfa_states in
+  match simulate d "b" with
   | Accept -> print_endline "accept"
   | Reject -> print_endline "reject"

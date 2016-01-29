@@ -4,8 +4,8 @@ open Sexp
 
 type state       = int with sexp, compare
 type alphabet    = char with sexp, compare
-type transaction = state * alphabet option * state with sexp, compare
-type d_transaction = state * alphabet * state with sexp, compare
+type transition = state * alphabet option * state with sexp, compare
+type d_transition = state * alphabet with sexp, compare
 
 
 module Lazy_state = struct
@@ -21,11 +21,15 @@ module Lazy_state = struct
 end
 
 
-let string_of_set ?(sep=",") set elt_to_string  = 
+let string_of_set ?(sep=", ") set elt_to_string  = 
   Set.elements set
     |> List.map ~f:elt_to_string
     |> String.concat ~sep
 
+let string_of_map ?(sep=", ") map elt_to_string = 
+  Map.to_alist map
+    |> List.map ~f:elt_to_string
+    |> String.concat ~sep
 
 (*******************************************************)
 
@@ -52,9 +56,9 @@ let string_of_alps_set set =
   string_of_set set string_of_alps 
 
 (*******************************************************)
-module Transaction_set = Set.Make(
+module Transition_set = Set.Make(
   struct
-    type t = transaction with sexp, compare
+    type t = transition with sexp, compare
   end
 )
 
@@ -73,18 +77,18 @@ let string_of_trans_set set =
 
 (*******************************************************)
 
-module D_Transaction_set = Set.Make(
+module D_Transition_map = Map.Make(
   struct
-    type t = d_transaction with sexp, compare
+    type t = d_transition with sexp, compare
   end)
 
-let string_of_dtrans_set set = 
-  let string_of_dtrans (sin, c, sout) =
+let string_of_dtrans_map map = 
+  let string_of_dtrans ((sin, c), sout) =
     (string_of_state sin) ^ "->" ^ 
     string_of_alps c ^ "->" ^
     (string_of_state sout)
   in
-  string_of_set set string_of_dtrans 
+  string_of_map map string_of_dtrans 
 
 (*******************************************************)
 
@@ -137,7 +141,7 @@ type states_set = States_set.t
 type nfa = {
   states       : State_set.t ;
   alphabets    : Alphabet_set.t ;
-  transactions : Transaction_set.t; 
+  transitions : Transition_set.t; 
   start_state  : state;
   final_states : State_set.t;
 }
@@ -146,7 +150,7 @@ type nfa = {
 type dfa = {
   d_states       : State_set.t ;
   d_alphabets    : Alphabet_set.t;
-  d_transactions : D_Transaction_set.t ;
+  d_transitions : state D_Transition_map.t ;
   d_start_state  : state ;
   d_final_states : State_set.t;
 }
