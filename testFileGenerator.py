@@ -1,7 +1,7 @@
 import rstr
 import os
 
-targetFolder = "./testfiles/"
+targetFolder = "./test/testfiles/"
 targetNumber = 200
 
 def genRandomStr(regex):
