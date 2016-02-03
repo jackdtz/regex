@@ -115,7 +115,7 @@ let rec parse_exp l =
         match t1 with
         | RParen -> (a, l2)
         | _ -> raise (IllegalExpression "Unbalanced parentheses"))
-    | _ -> raise (IllegalExpression "Unknown token")
+    | _ -> raise (IllegalExpression ("Unknown token" ^ (token_to_string t)))
 
 let parse str = 
   let tok_list = tokenize str in
