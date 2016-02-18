@@ -2,7 +2,7 @@ import rstr
 import os
 
 targetFolder = "./test/testfiles/"
-targetNumber = 200
+targetNumber = 20
 
 def genRandomStr(regex):
     return rstr.xeger(regex)
@@ -22,19 +22,20 @@ def alreadyExist(filename):
 
 def generateTestFiles(sourcefile):
     regexs = readRegexsFromFile(sourcefile)
+    print(regexs)
     index = 1
+    print(str(index))
     for re in regexs:
         filename = targetFolder + "data" + str(index) + ".txt"
         results = genRandomStrLst(re, targetNumber)
 
-        if alreadyExist(filename):
-            op = "w"
-        else:
-            op = "a+"
-        with open(filename, op) as f:
-            f.write("%s\n" % re)
-            for item in results:
-                f.write("%s\n" % item)
+        if not alreadyExist(filename):
+            print(re)
+            with open(filename, "a+") as f:
+                print("writing %s" % re)
+                f.write("%s\n" % re)
+                for item in results:
+                    f.write("%s\n" % item)
         index = index + 1
 
 if __name__ == "__main__":

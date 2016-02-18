@@ -1,7 +1,7 @@
 open Core.Std
 
 exception IllegalRegex of string
-exception IllegalInput of char
+exception IllegalInput of string
 
 type range = 
   | Range_int  of int * int
@@ -71,6 +71,8 @@ let is_int s = Char.is_digit s
 
 let char_to_int c = (Char.to_int c) - 48
 
+let char_to_string c = Char.escaped c
+
 let is_alphabet s = Char.is_alpha s
 
 let string_to_char_list str = 
@@ -86,27 +88,28 @@ let meta_chars = ['['; ']'; '\\'; '$'; '.'; '|';
 
 let char_to_token c = 
   match c with
-  | '[' -> LSQURE
-  | ']' -> RSQURE
-  | '(' -> LPAREN
-  | ')' -> RPAREN
-  | '{' -> LCURLY
-  | '}' -> RCURLY
-  | '*' -> STAR
-  | '|' -> PIPE
-  | '?' -> QUESTION
-  | '+' -> PLUS
-  | '^' -> BEGIN
-  | '$' -> END
-  | '.' -> DOT
-  | '-' -> SEP
-  | ',' -> COMMA
+  | '['   -> LSQURE
+  | ']'   -> RSQURE
+  | '('   -> LPAREN
+  | ')'   -> RPAREN
+  | '{'   -> LCURLY
+  | '}'   -> RCURLY
+  | '*'   -> STAR
+  | '|'   -> PIPE
+  | '?'   -> QUESTION
+  | '+'   -> PLUS
+  | '^'   -> BEGIN
+  | '$'   -> END
+  | '.'   -> DOT
+  | '-'   -> SEP
+  | ','   -> COMMA
+  | '\\'  -> BACKSLASH
   | _ -> 
       if (is_alphabet c)
       then ALPHABET c
       else if (is_int c)
       then NUMBER (char_to_int c)
-      else raise (IllegalInput c)
+      else raise (IllegalInput (char_to_string c))
 
 let slash_c_to_token c =
   match c with
@@ -133,7 +136,7 @@ let slash_c_to_token c =
   | '}'   -> RCURLY
   | '('   -> LPAREN
   | ')'   -> RPAREN
-  | _   -> raise (IllegalInput c)
+  | _   -> raise (IllegalInput (char_to_string c))
 
 let token_to_string token = 
   match token with
@@ -202,6 +205,4 @@ let lexer str =
   lexer_helper buffer START [] 
 
 
-let () = 
-  Printf.printf "%s\n" (tokens_to_string (lexer "\s+ab*(\{|\))"))
 

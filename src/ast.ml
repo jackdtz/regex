@@ -1,6 +1,9 @@
 open Core.Std
 exception IllegalExpression of string
 
+
+
+
 type token = 
   | End
   | Alphabet of char

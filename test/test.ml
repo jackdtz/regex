@@ -1,6 +1,7 @@
 open Ast
 open Core.Std
 open Simulate
+open Lexer
 
 let parser_equal regex_str y  = 
   let res = Ast.parse regex_str in
